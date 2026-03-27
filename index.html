@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-  <title>Mikana AI Kiosk</title>
+  <title>Mikana AI Kiosk (Capture Mode)</title>
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
   
   <script>
@@ -42,7 +42,6 @@
     .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: var(--panel); border-radius: 16px; border: 1px solid var(--border); flex-shrink: 0; }
     .header-title { font-weight: 900; font-size: 18px; display: flex; align-items: center; gap: 15px; }
     
-    /* MODE TOGGLE BUTTON */
     .mode-btn { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 12px; }
     .mode-btn:hover { border-color: var(--accent); color: var(--accent); }
 
@@ -50,19 +49,30 @@
     .time { font-size: 20px; font-weight: 900; }
     .date { font-size: 12px; color: var(--sub); font-weight: 600; text-transform: uppercase; }
 
-    .cam-container { flex: 1; position: relative; background: #000; border-radius: 20px; overflow: hidden; border: 3px solid var(--border); transition: all 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
-    video { width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); }
-    canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); }
-    .ai-status-overlay { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 8px 16px; border-radius: 20px; font-weight: 900; font-size: 14px; color: var(--warning); backdrop-filter: blur(4px); z-index: 10; border: 1px solid rgba(255,255,255,0.1); }
+    .cam-container { flex: 1; position: relative; background: #000; border-radius: 20px; overflow: hidden; border: 3px solid var(--border); transition: all 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display:flex; flex-direction:column; }
+    
+    .video-wrap { flex: 1; position: relative; width: 100%; overflow:hidden; }
+    video { position: absolute; top:0; left:0; width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); }
+    canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); pointer-events: none; }
+    
+    /* 📸 GIANT CAPTURE BUTTON */
+    .capture-btn-wrap { padding: 15px; background: var(--panel); border-top: 1px solid var(--border); text-align: center; z-index: 20; }
+    .capture-btn { width: 100%; max-width: 400px; background: var(--accent); color: #000; padding: 20px; border-radius: 16px; border: none; font-weight: 900; font-size: 18px; cursor: pointer; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4); transition: transform 0.1s; }
+    .capture-btn:active { transform: scale(0.96); }
+    .capture-btn:disabled { background: var(--border); color: var(--sub); box-shadow: none; cursor: not-allowed; }
 
-    /* CONFIRMATION POPUP */
-    .confirm-overlay { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(6px); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 50; }
-    .confirm-box { background: var(--panel); padding: 30px; border-radius: 20px; text-align: center; border: 2px solid var(--accent); box-shadow: 0 20px 50px rgba(0,0,0,0.5); max-width: 90%; }
-    .confirm-title { font-size: 18px; color: var(--sub); margin: 0 0 10px 0; font-weight: bold; }
-    .confirm-name { font-size: 28px; color: var(--accent); font-weight: 900; margin: 0 0 25px 0; }
-    .btn-row { display: flex; gap: 15px; justify-content: center; }
-    .btn-yes { background: var(--success); color: #fff; padding: 15px 30px; border-radius: 12px; border: none; font-weight: 900; font-size: 16px; cursor: pointer; flex: 1; }
-    .btn-no { background: var(--error); color: #fff; padding: 15px 30px; border-radius: 12px; border: none; font-weight: 900; font-size: 16px; cursor: pointer; flex: 1; }
+    .ai-status-overlay { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); padding: 8px 16px; border-radius: 20px; font-weight: 900; font-size: 14px; color: var(--warning); backdrop-filter: blur(4px); z-index: 10; border: 1px solid rgba(255,255,255,0.1); }
+
+    /* CONFIRMATION POPUP WITH TIME IN/OUT */
+    .confirm-overlay { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
+    .confirm-box { background: var(--panel); padding: 30px; border-radius: 20px; text-align: center; border: 2px solid var(--accent); box-shadow: 0 20px 50px rgba(0,0,0,0.5); width: 100%; max-width: 450px; }
+    .confirm-title { font-size: 16px; color: var(--sub); margin: 0 0 10px 0; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+    .confirm-name { font-size: 26px; color: #fff; font-weight: 900; margin: 0 0 30px 0; }
+    
+    .action-row { display: flex; flex-direction: column; gap: 12px; }
+    .btn-time-in { background: var(--success); color: #fff; padding: 18px; border-radius: 12px; border: none; font-weight: 900; font-size: 18px; cursor: pointer; }
+    .btn-time-out { background: var(--error); color: #fff; padding: 18px; border-radius: 12px; border: none; font-weight: 900; font-size: 18px; cursor: pointer; }
+    .btn-cancel { background: transparent; color: var(--sub); padding: 15px; border-radius: 12px; border: 2px solid var(--border); font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
 
     /* BOTTOM PANELS */
     .panel-wrapper { position: relative; flex-shrink: 0; height: 100px; }
@@ -75,7 +85,6 @@
     .emp-name { font-size: 22px; font-weight: 900; margin: 0 0 4px 0; color: var(--text); }
     .status-pill { align-self: flex-start; padding: 6px 14px; border-radius: 12px; font-size: 14px; font-weight: 900; background: var(--bg); border: 1px solid var(--border); color: var(--sub); }
     
-    /* REGISTRATION PANEL */
     .reg-card { position: absolute; inset: 0; background: var(--panel); border: 2px solid var(--accent); border-radius: 20px; padding: 15px 20px; display: none; align-items: center; gap: 15px; }
     .reg-input { flex: 1; background: var(--bg); border: 1px solid var(--border); color: white; padding: 15px; border-radius: 12px; font-size: 16px; font-weight: bold; outline: none; text-transform: uppercase; }
     .reg-btn { background: var(--accent); color: #000; padding: 15px 25px; border-radius: 12px; border: none; font-weight: 900; font-size: 16px; cursor: pointer; }
@@ -109,17 +118,24 @@
   </div>
 
   <div class="cam-container" id="camContainer">
-    <video id="video" autoplay muted playsinline></video>
-    <canvas id="overlay"></canvas>
-    <div class="ai-status-overlay" id="aiStatus">WAITING FOR ADMIN UNLOCK...</div>
+    <div class="video-wrap">
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="overlay"></canvas>
+        <div class="ai-status-overlay" id="aiStatus" style="display:none;"></div>
+    </div>
+    
+    <div class="capture-btn-wrap" id="captureWrap">
+        <button class="capture-btn" id="captureBtn" onclick="captureAndAnalyze()">📸 CAPTURE & RECOGNIZE</button>
+    </div>
     
     <div class="confirm-overlay" id="confirmModal">
         <div class="confirm-box">
-            <div class="confirm-title">IS THIS YOU?</div>
+            <div class="confirm-title">EMPLOYEE IDENTIFIED</div>
             <div class="confirm-name" id="confirmName">ARCHIE (MIK-235)</div>
-            <div class="btn-row">
-                <button class="btn-no" onclick="confirmNo()">❌ RETRY</button>
-                <button class="btn-yes" onclick="confirmYes()">✅ YES, TIME IN</button>
+            <div class="action-row">
+                <button class="btn-time-in" onclick="submitScan('IN')">🟢 TIME IN</button>
+                <button class="btn-time-out" onclick="submitScan('OUT')">🔴 TIME OUT</button>
+                <button class="btn-cancel" onclick="resetScanner()">❌ CANCEL / RETRY</button>
             </div>
         </div>
     </div>
@@ -160,8 +176,9 @@
   }
 
   let adminToken = "";
-  let currentMode = "SCAN"; // "SCAN" or "REGISTER"
-  let globalFacesMap = {}; // Store names for the confirmation popup
+  let currentMode = "SCAN"; 
+  let globalFacesMap = {}; 
+  let pendingEmpCode = ""; // Stores the matched code while waiting for In/Out selection
   
   const adminGate = document.getElementById('adminGate');
   const adminPass = document.getElementById('adminPass');
@@ -204,27 +221,24 @@
   }
   setInterval(tick, 1000); tick();
 
-  // --- MODE TOGGLING ---
   function toggleMode() {
       const btn = document.getElementById('modeBtn');
+      const capBtn = document.getElementById('captureWrap');
       if(currentMode === "SCAN") {
           currentMode = "REGISTER";
           btn.textContent = "⬅️ BACK TO SCANNER";
+          capBtn.style.display = "none"; // Hide capture button in reg mode
           document.getElementById('infoCard').style.display = "none";
           document.getElementById('regCard').style.display = "flex";
-          document.getElementById('aiStatus').textContent = "REGISTRATION MODE: ENTER CODE & CLICK SAVE";
-          document.getElementById('aiStatus').style.color = "var(--accent)";
       } else {
           currentMode = "SCAN";
           btn.textContent = "⚙️ REGISTRATION MODE";
+          capBtn.style.display = "block";
           document.getElementById('infoCard').style.display = "flex";
           document.getElementById('regCard').style.display = "none";
-          document.getElementById('aiStatus').textContent = "🟢 LIVE SCANNER ACTIVE";
-          document.getElementById('aiStatus').style.color = "var(--success)";
       }
   }
 
-  // --- UI UPDATES ---
   const empNameEl = document.getElementById('empName');
   const statusLineEl = document.getElementById('statusLine');
   const avatarBox = document.getElementById('avatarBox');
@@ -251,23 +265,18 @@
     } catch(err) { setStatusLine("ERROR", "out"); }
   }
 
-  // --- 🤖 AI ENGINE (OPTIMIZED) ---
+  // --- 🤖 AI ENGINE (MANUAL CAPTURE MODE) ---
   const video = document.getElementById('video');
   const overlay = document.getElementById('overlay');
+  const aiStatus = document.getElementById('aiStatus');
   let faceMatcher = null;
-  let isScanning = false;
-  let submitBusy = false;
-  
-  // CONFIRMATION LOGIC
-  let isConfirming = false;
-  let pendingEmpCode = "";
-
-  window.addEventListener('resize', () => {
-     if(video.videoWidth > 0) { overlay.width = video.clientWidth; overlay.height = video.clientHeight; }
-  });
 
   async function startAIEngine() {
       const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+      
+      aiStatus.style.display = "block";
+      aiStatus.textContent = "LOADING AI MODELS...";
+      
       await Promise.all([
         faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
         faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
@@ -275,116 +284,132 @@
       ]);
       
       try {
+          aiStatus.textContent = "LOADING DATABASE...";
           const res = await fetchAPI({ page: 'api_get_faces' });
           if(res.ok && res.faces) {
               const labeledDescriptors = res.faces.map(f => {
-                 globalFacesMap[f.code] = f.name; // Save name for popup
+                 globalFacesMap[f.code] = f.name; 
                  const float32Array = new Float32Array(JSON.parse(f.descriptor));
                  return new faceapi.LabeledFaceDescriptors(f.code, [float32Array]); 
               });
               if(labeledDescriptors.length > 0) {
-                 faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6); // 0.6 Strictness
+                 faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6); 
               }
           }
           
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } });
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
           video.srcObject = stream;
-          document.getElementById('aiStatus').textContent = "🟢 LIVE SCANNER ACTIVE";
-          isScanning = true;
-          video.onloadedmetadata = () => { overlay.width = video.clientWidth; overlay.height = video.clientHeight; };
-          scanLoop();
-      } catch(e) { document.getElementById('aiStatus').textContent = "CAMERA ERROR"; }
+          
+          video.onloadedmetadata = () => { 
+             overlay.width = video.clientWidth; 
+             overlay.height = video.clientHeight; 
+             aiStatus.style.display = "none"; // Hide status when ready
+          };
+          
+          // WE NO LONGER CALL scanLoop() HERE. We wait for the button click.
+          
+      } catch(e) { 
+          aiStatus.textContent = "CAMERA ERROR"; 
+      }
   }
 
-  async function scanLoop() {
-      if(!isScanning) return;
+  // --- THE NEW MANUAL CAPTURE LOGIC ---
+  async function captureAndAnalyze() {
+      if(!faceMatcher) {
+          alert("Face Database not loaded yet. Please wait."); return;
+      }
+      
+      const btn = document.getElementById('captureBtn');
+      btn.disabled = true;
+      btn.textContent = "⏳ ANALYZING PHOTO...";
+      
+      // Clear any old boxes
+      const ctx = overlay.getContext('2d');
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
 
-      // 🔥 OPTIMIZATION: Lowered minConfidence to 0.4 to detect faces in darker lighting
-      const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 });
-      const detections = await faceapi.detectAllFaces(video, options).withFaceLandmarks().withFaceDescriptors();
+      try {
+          // Take a snapshot and run detection
+          const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 });
+          const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
+          
+          if (!detection) {
+              throw new Error("No face found! Please look at the camera.");
+          }
+
+          // Draw the box on the frozen frame
+          const displaySize = { width: video.clientWidth, height: video.clientHeight };
+          const resizedDetection = faceapi.resizeResults(detection, displaySize);
+          const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+          
+          if (bestMatch.label !== "unknown" && bestMatch.distance < 0.6) {
+              // Draw Green Box
+              const drawBox = new faceapi.draw.DrawBox(resizedDetection.detection.box, { label: bestMatch.label, boxColor: '#10b981' });
+              drawBox.draw(overlay);
+              
+              // TRIGGER THE TIME IN/OUT POPUP
+              pendingEmpCode = bestMatch.label;
+              const realName = globalFacesMap[pendingEmpCode] || pendingEmpCode;
+              document.getElementById('confirmName').textContent = `${realName} (${pendingEmpCode})`;
+              document.getElementById('confirmModal').style.display = 'flex';
+              
+          } else {
+              // Draw Red Box
+              const drawBox = new faceapi.draw.DrawBox(resizedDetection.detection.box, { label: "Unrecognized", boxColor: '#ef4444' });
+              drawBox.draw(overlay);
+              throw new Error("Face not recognized in database.");
+          }
+
+      } catch (err) {
+          alert(err.message);
+          resetScanner(); // Reset if failed
+      }
+  }
+
+  function resetScanner() {
+      document.getElementById('confirmModal').style.display = 'none';
+      pendingEmpCode = "";
+      
+      const btn = document.getElementById('captureBtn');
+      btn.disabled = false;
+      btn.textContent = "📸 CAPTURE & RECOGNIZE";
       
       const ctx = overlay.getContext('2d');
       ctx.clearRect(0, 0, overlay.width, overlay.height);
-      
-      if (detections.length > 0) {
-          const resizedDetections = faceapi.resizeResults(detections, { width: video.clientWidth, height: video.clientHeight });
-          
-          if(!isConfirming && currentMode === "SCAN" && !submitBusy) {
-              
-              if(faceMatcher) {
-                  resizedDetections.forEach(d => {
-                      const bestMatch = faceMatcher.findBestMatch(d.descriptor);
-                      
-                      // 🔥 OPTIMIZATION: If recognized, draw GREEN box and pop up
-                      if (bestMatch.label !== "unknown" && bestMatch.distance < 0.6) {
-                          const drawBox = new faceapi.draw.DrawBox(d.detection.box, { label: bestMatch.label, boxColor: '#10b981' });
-                          drawBox.draw(overlay);
-                          triggerConfirmation(bestMatch.label);
-                      } else {
-                          // 🔥 OPTIMIZATION: If face is seen but UNRECOGNIZED, draw RED box to let user know
-                          const drawBox = new faceapi.draw.DrawBox(d.detection.box, { label: "Unrecognized", boxColor: '#ef4444' });
-                          drawBox.draw(overlay);
-                      }
-                  });
-              }
-          }
-      }
-      requestAnimationFrame(scanLoop);
-  }
-
-  // --- CONFIRMATION POPUP FLOW ---
-  function triggerConfirmation(empCode) {
-      if (submitBusy || isConfirming || currentMode !== "SCAN") return; 
-      
-      isConfirming = true;
-      pendingEmpCode = empCode;
-      
-      const realName = globalFacesMap[empCode] || empCode;
-      
-      document.getElementById('confirmName').textContent = `${realName} (${empCode})`;
-      document.getElementById('confirmModal').style.display = 'flex';
-  }
-
-  function confirmNo() {
-      document.getElementById('confirmModal').style.display = 'none';
-      isConfirming = false;
-      pendingEmpCode = "";
-  }
-
-  function confirmYes() {
-      document.getElementById('confirmModal').style.display = 'none';
-      submitScan(pendingEmpCode);
   }
 
   // --- ATTENDANCE SUBMIT ---
-  async function submitScan(empCode){
-    submitBusy = true;
-    setStatusLine("ANALYZING...", "proc");
+  // Note: We pass the explicit action (IN or OUT) to the backend API now.
+  async function submitScan(actionType){
+    document.getElementById('confirmModal').style.display = 'none';
+    
+    setStatusLine("SAVING " + actionType + "...", "proc");
     empNameEl.textContent = "PROCESSING...";
+    
+    const btn = document.getElementById('captureBtn');
+    btn.textContent = "⏳ SAVING RECORD...";
 
     try {
-      const res = await fetchAPI({ page: 'api_scan', code: empCode, adminToken: adminToken });
+      // Pass the explicit action to the backend
+      const res = await fetchAPI({ page: 'api_scan', code: pendingEmpCode, adminToken: adminToken, action: actionType });
       
-      if(!res || (!res.ok && res.action !== "ABSENT" && res.action !== "IN" && res.action !== "OUT" && res.action !== "DONE")) {
-          throw new Error(res.statusLine || "FAILED");
+      if(!res || !res.ok) {
+          throw new Error((res && res.statusLine) ? res.statusLine : "FAILED TO SAVE");
       }
 
-      empNameEl.textContent = (res && res.empName) ? res.empName : empCode;
+      empNameEl.textContent = (res && res.empName) ? res.empName : pendingEmpCode;
       setAvatar(res && res.imageUrl ? res.imageUrl : "");
       
-      let type = "proc";
-      if(res.action === "IN") type = "in";
-      if(res.action === "OUT" || res.action === "ABSENT") type = "out";
+      let colorType = "proc";
+      if(actionType === "IN" || res.action === "IN") colorType = "in";
+      if(actionType === "OUT" || res.action === "OUT") colorType = "out";
       
-      setStatusLine(res.statusLine, type);
+      setStatusLine(res.statusLine || `${actionType} RECORDED`, colorType);
       
-      // Reset Scanner
       setTimeout(() => {
          empNameEl.textContent = "WAITING FOR SCAN";
          setAvatar("");
          setStatusLine("READY", "");
-         submitBusy = false;
-         isConfirming = false;
+         resetScanner();
       }, 3500);
 
     } catch(err) {
@@ -393,8 +418,7 @@
       setTimeout(() => { 
          empNameEl.textContent = "WAITING FOR SCAN";
          setStatusLine("READY", ""); 
-         submitBusy = false;
-         isConfirming = false;
+         resetScanner();
       }, 3500);
     }
   }
@@ -406,34 +430,33 @@
       const codeInput = document.getElementById('regCode').value.trim().toUpperCase();
       if(!codeInput) return alert("Please enter an Employee Code first!");
 
-      document.getElementById('aiStatus').textContent = "MAPPING FACE... LOOK AT CAMERA";
+      aiStatus.style.display = "block";
+      aiStatus.textContent = "MAPPING FACE... HOLD STILL";
       
-      // Kept registration strictness default to ensure high-quality enrollment photos
       const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
       if(!detection) {
-          document.getElementById('aiStatus').textContent = "ERROR: NO FACE DETECTED. TRY AGAIN.";
-          return;
+          aiStatus.style.display = "none";
+          return alert("ERROR: NO FACE DETECTED. TRY AGAIN.");
       }
 
       const descStr = JSON.stringify(Array.from(detection.descriptor));
-      document.getElementById('aiStatus').textContent = "SAVING TO DATABASE...";
+      aiStatus.textContent = "SAVING TO DATABASE...";
 
       try {
           const res = await fetchAPI({ page: 'api_register', code: codeInput, descriptor: descStr });
           if(res.ok) {
               alert(`Success! ${codeInput} is now registered.`);
-              document.getElementById('regCode').value = ""; // Clear input
-              document.getElementById('aiStatus').textContent = "RELOADING AI DATABASE...";
-              // Reload faces so the scanner knows them immediately
+              document.getElementById('regCode').value = ""; 
+              aiStatus.style.display = "none";
               runStartupEmployeeUpdate(); 
-              toggleMode(); // Kick back to Scanner mode automatically
+              toggleMode(); 
           } else {
+              aiStatus.style.display = "none";
               alert("Save Failed: " + (res.error || "Unknown Error"));
-              document.getElementById('aiStatus').textContent = "REGISTRATION MODE: ENTER CODE & CLICK SAVE";
           }
       } catch(e) { 
+          aiStatus.style.display = "none";
           alert("Server Communication Error!");
-          document.getElementById('aiStatus').textContent = "REGISTRATION MODE: ENTER CODE & CLICK SAVE";
       }
   }
 </script>
