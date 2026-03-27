@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-  <title>Mikana AI Tablet Scanner</title>
+  <title>Mikana AI Kiosk</title>
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
   
   <script>
@@ -23,7 +23,6 @@
   </script>
 
   <style>
-    /* MODERN RESPONSIVE CSS */
     :root { --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --sub: #94a3b8; --border: #334155; --accent: #38bdf8; --success: #10b981; --error: #ef4444; --warning: #f59e0b; }
     *, *::before, *::after { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg); color: var(--text); overflow: hidden; }
@@ -31,62 +30,67 @@
     body.flash-success .cam-container { box-shadow: 0 0 40px rgba(16, 185, 129, 0.6); border-color: var(--success); }
     body.flash-error .cam-container { box-shadow: 0 0 40px rgba(239, 68, 68, 0.6); border-color: var(--error); }
 
-    /* ADMIN GATE OVERLAY */
     .gate { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(8px); padding: 20px; }
     .gateCard { background: var(--panel); border: 1px solid var(--border); padding: 30px; border-radius: 20px; text-align: center; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
     .gateTitle { font-size: 20px; font-weight: 900; color: var(--accent); margin-bottom: 5px; }
-    .gateInput { width: 100%; background: var(--bg); border: 2px solid var(--border); color: white; padding: 15px; border-radius: 12px; margin: 15px 0; font-size: 16px; text-align: center; font-weight: bold; outline: none; transition: border-color 0.2s; }
-    .gateInput:focus { border-color: var(--accent); }
-    .gateBtn { width: 100%; background: var(--accent); color: #000; font-weight: 900; font-size: 16px; padding: 15px; border: none; border-radius: 12px; cursor: pointer; transition: 0.2s; }
-    .gateBtn:active { transform: scale(0.98); }
+    .gateInput { width: 100%; background: var(--bg); border: 2px solid var(--border); color: white; padding: 15px; border-radius: 12px; margin: 15px 0; font-size: 16px; text-align: center; font-weight: bold; outline: none; }
+    .gateBtn { width: 100%; background: var(--accent); color: #000; font-weight: 900; font-size: 16px; padding: 15px; border: none; border-radius: 12px; cursor: pointer; }
     .gateErr { color: var(--error); font-size: 14px; font-weight: bold; margin-top: 10px; min-height: 20px; }
 
-    /* MAIN APP LAYOUT */
     #viewport { display: none; flex-direction: column; height: 100vh; padding: 15px; gap: 15px; max-width: 1200px; margin: 0 auto; }
     
-    /* HEADER */
     .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: var(--panel); border-radius: 16px; border: 1px solid var(--border); flex-shrink: 0; }
-    .header-title { font-weight: 900; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+    .header-title { font-weight: 900; font-size: 18px; display: flex; align-items: center; gap: 15px; }
+    
+    /* MODE TOGGLE BUTTON */
+    .mode-btn { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 8px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 12px; }
+    .mode-btn:hover { border-color: var(--accent); color: var(--accent); }
+
     .header-clock { text-align: right; }
-    .time { font-size: 20px; font-weight: 900; font-variant-numeric: tabular-nums; }
+    .time { font-size: 20px; font-weight: 900; }
     .date { font-size: 12px; color: var(--sub); font-weight: 600; text-transform: uppercase; }
 
-    /* GIANT CAMERA AREA */
     .cam-container { flex: 1; position: relative; background: #000; border-radius: 20px; overflow: hidden; border: 3px solid var(--border); transition: all 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
-    video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-    canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-    .ai-status-overlay { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 8px 16px; border-radius: 20px; font-weight: 900; font-size: 14px; color: var(--warning); backdrop-filter: blur(4px); z-index: 10; text-align: center; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1); }
+    video { width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); }
+    canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); }
+    .ai-status-overlay { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 8px 16px; border-radius: 20px; font-weight: 900; font-size: 14px; color: var(--warning); backdrop-filter: blur(4px); z-index: 10; border: 1px solid rgba(255,255,255,0.1); }
 
-    /* BOTTOM INFO CARD (AVATAR STYLE) */
-    .info-card { background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 15px 20px; display: flex; align-items: center; gap: 20px; flex-shrink: 0; transition: all 0.3s ease; }
-    .avatar-wrapper { width: 70px; height: 70px; border-radius: 50%; background: var(--bg); border: 3px solid var(--border); overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    /* CONFIRMATION POPUP */
+    .confirm-overlay { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(6px); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 50; }
+    .confirm-box { background: var(--panel); padding: 30px; border-radius: 20px; text-align: center; border: 2px solid var(--accent); box-shadow: 0 20px 50px rgba(0,0,0,0.5); max-width: 90%; }
+    .confirm-title { font-size: 18px; color: var(--sub); margin: 0 0 10px 0; font-weight: bold; }
+    .confirm-name { font-size: 28px; color: var(--accent); font-weight: 900; margin: 0 0 25px 0; }
+    .btn-row { display: flex; gap: 15px; justify-content: center; }
+    .btn-yes { background: var(--success); color: #fff; padding: 15px 30px; border-radius: 12px; border: none; font-weight: 900; font-size: 16px; cursor: pointer; flex: 1; }
+    .btn-no { background: var(--error); color: #fff; padding: 15px 30px; border-radius: 12px; border: none; font-weight: 900; font-size: 16px; cursor: pointer; flex: 1; }
+
+    /* BOTTOM PANELS */
+    .panel-wrapper { position: relative; flex-shrink: 0; height: 100px; }
+    
+    .info-card { position: absolute; inset: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 15px 20px; display: flex; align-items: center; gap: 20px; transition: 0.3s; }
+    .avatar-wrapper { width: 70px; height: 70px; border-radius: 50%; background: var(--bg); border: 3px solid var(--border); overflow: hidden; display: flex; align-items: center; justify-content: center; }
     .avatar-wrapper img { width: 100%; height: 100%; object-fit: cover; }
     .avatar-placeholder { font-size: 24px; color: var(--sub); }
-    
     .emp-details { flex: 1; display: flex; flex-direction: column; justify-content: center; }
     .emp-name { font-size: 22px; font-weight: 900; margin: 0 0 4px 0; color: var(--text); }
-    .status-pill { align-self: flex-start; padding: 6px 14px; border-radius: 12px; font-size: 14px; font-weight: 900; background: var(--bg); border: 1px solid var(--border); color: var(--sub); transition: all 0.2s; }
+    .status-pill { align-self: flex-start; padding: 6px 14px; border-radius: 12px; font-size: 14px; font-weight: 900; background: var(--bg); border: 1px solid var(--border); color: var(--sub); }
     
-    /* STATUS COLORS */
+    /* REGISTRATION PANEL */
+    .reg-card { position: absolute; inset: 0; background: var(--panel); border: 2px solid var(--accent); border-radius: 20px; padding: 15px 20px; display: none; align-items: center; gap: 15px; }
+    .reg-input { flex: 1; background: var(--bg); border: 1px solid var(--border); color: white; padding: 15px; border-radius: 12px; font-size: 16px; font-weight: bold; outline: none; text-transform: uppercase; }
+    .reg-btn { background: var(--accent); color: #000; padding: 15px 25px; border-radius: 12px; border: none; font-weight: 900; font-size: 16px; cursor: pointer; }
+
     .status-in { background: rgba(16, 185, 129, 0.15); border-color: var(--success); color: var(--success); }
     .status-out { background: rgba(239, 68, 68, 0.15); border-color: var(--error); color: var(--error); }
     .status-proc { background: rgba(245, 158, 11, 0.15); border-color: var(--warning); color: var(--warning); }
-
-    /* MOBILE TWEAKS */
-    @media (max-width: 600px) {
-       .emp-name { font-size: 18px; }
-       .avatar-wrapper { width: 60px; height: 60px; }
-       .info-card { padding: 12px; gap: 12px; }
-    }
   </style>
 </head>
 <body>
 
 <div id="adminGate" class="gate">
   <div class="gateCard">
-    <div class="gateTitle">🤖 AI SCANNER</div>
-    <div style="color:var(--sub); font-size:14px; margin-bottom: 20px;">Enter admin password to unlock device.</div>
-    <input id="adminPass" class="gateInput" type="password" placeholder="Password" />
+    <div class="gateTitle">🤖 AI KIOSK ACCESS</div>
+    <input id="adminPass" class="gateInput" type="password" placeholder="Admin Password" />
     <button id="adminBtn" class="gateBtn" type="button">UNLOCK</button>
     <div id="adminErr" class="gateErr"></div>
   </div>
@@ -94,7 +98,10 @@
 
 <div id="viewport">
   <div class="header">
-    <div class="header-title">🤖 TEAMBA AI</div>
+    <div class="header-title">
+      🤖 TEAMBA AI
+      <button class="mode-btn" id="modeBtn" onclick="toggleMode()">⚙️ REGISTRATION MODE</button>
+    </div>
     <div class="header-clock">
       <div class="time" id="clock">00:00:00</div>
       <div class="date" id="clockDate">—</div>
@@ -105,43 +112,57 @@
     <video id="video" autoplay muted playsinline></video>
     <canvas id="overlay"></canvas>
     <div class="ai-status-overlay" id="aiStatus">WAITING FOR ADMIN UNLOCK...</div>
+    
+    <div class="confirm-overlay" id="confirmModal">
+        <div class="confirm-box">
+            <div class="confirm-title">IS THIS YOU?</div>
+            <div class="confirm-name" id="confirmName">ARCHIE (MIK-235)</div>
+            <div class="btn-row">
+                <button class="btn-no" onclick="confirmNo()">❌ RETRY</button>
+                <button class="btn-yes" onclick="confirmYes()">✅ YES, TIME IN</button>
+            </div>
+        </div>
+    </div>
   </div>
 
-  <div class="info-card">
-    <div class="avatar-wrapper" id="avatarBox">
-       <div class="avatar-placeholder">👤</div>
+  <div class="panel-wrapper">
+    <div class="info-card" id="infoCard">
+      <div class="avatar-wrapper" id="avatarBox"><div class="avatar-placeholder">👤</div></div>
+      <div class="emp-details">
+        <h2 class="emp-name" id="empName">WAITING FOR SCAN</h2>
+        <div class="status-pill" id="statusLine">READY</div>
+      </div>
     </div>
-    <div class="emp-details">
-      <h2 class="emp-name" id="empName">WAITING FOR SCAN</h2>
-      <div class="status-pill" id="statusLine">READY</div>
+
+    <div class="reg-card" id="regCard">
+        <input type="text" class="reg-input" id="regCode" placeholder="ENTER EMPLOYEE CODE (e.g. MIK-1)">
+        <button class="reg-btn" onclick="registerNewFace()">📸 MAP FACE & SAVE</button>
     </div>
   </div>
 </div>
 
 <script>
-  // AUDIO BEEP
   function triggerSuccessFeedback() {
-    document.body.classList.add('flash-success');
-    setTimeout(() => { document.body.classList.remove('flash-success'); }, 400); 
+    document.body.classList.add('flash-success'); setTimeout(() => { document.body.classList.remove('flash-success'); }, 400); 
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator(); const gainNode = ctx.createGain();
       osc.connect(gainNode); gainNode.connect(ctx.destination);
       osc.type = 'sine'; osc.frequency.setValueAtTime(1046.50, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(1318.51, ctx.currentTime + 0.1);
-      gainNode.gain.setValueAtTime(0.5, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      gainNode.gain.setValueAtTime(0.5, ctx.currentTime); gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
       osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
     } catch (e) {}
   }
 
   function triggerErrorFeedback() {
-    document.body.classList.add('flash-error');
-    setTimeout(() => { document.body.classList.remove('flash-error'); }, 400); 
+    document.body.classList.add('flash-error'); setTimeout(() => { document.body.classList.remove('flash-error'); }, 400); 
   }
 
-  // APP LOGIC
   let adminToken = "";
+  let currentMode = "SCAN"; // "SCAN" or "REGISTER"
+  let globalFacesMap = {}; // Store names for the confirmation popup
+  
   const adminGate = document.getElementById('adminGate');
   const adminPass = document.getElementById('adminPass');
   const adminBtn  = document.getElementById('adminBtn');
@@ -152,55 +173,65 @@
 
   function unlockApp(){
     adminGate.style.display = "none";
-    viewport.style.display = "flex"; // Use flex for responsive layout
+    viewport.style.display = "flex";
     runStartupEmployeeUpdate();
   }
 
   async function tryUnlock(){
     const p = String(adminPass.value || "");
-    if (!p){ setAdminError("ENTER PASSWORD"); adminPass.focus(); return; }
-    
-    if(SCRIPT_URL === "YOUR_GOOGLE_WEB_APP_URL_HERE") {
-        setAdminError("PASTE YOUR SCRIPT URL IN THE HTML CODE!"); return;
-    }
+    if (!p) return setAdminError("ENTER PASSWORD");
+    if(SCRIPT_URL === "YOUR_GOOGLE_WEB_APP_URL_HERE") return setAdminError("PASTE YOUR SCRIPT URL IN THE HTML CODE!");
 
     setAdminError("CHECKING..."); adminBtn.disabled = true;
-
     try {
       const res = await fetchAPI({ page: 'api_verify_admin', pass: p });
       adminBtn.disabled = false;
       if (res && res.ok && res.token){
         adminToken = res.token; setAdminError(""); unlockApp();
       } else {
-        adminPass.value = ""; setAdminError((res && res.msg) ? res.msg : "WRONG PASSWORD"); adminPass.focus();
+        adminPass.value = ""; setAdminError("WRONG PASSWORD");
       }
-    } catch(err) {
-      adminBtn.disabled = false; setAdminError("SERVER ERROR"); adminPass.focus();
-    }
+    } catch(err) { adminBtn.disabled = false; setAdminError("SERVER ERROR"); }
   }
 
   adminBtn.addEventListener('click', tryUnlock);
   adminPass.addEventListener('keydown', (e)=>{ if (e.key === "Enter"){ e.preventDefault(); tryUnlock(); } });
 
-  // CLOCK
-  function pad2(n){ return String(n).padStart(2,'0'); }
   function tick(){
     const d = new Date();
-    document.getElementById('clock').textContent = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
-    document.getElementById('clockDate').textContent = `${["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}, ${["SUN","MON","TUE","WED","THU","FRI","SAT"][d.getDay()]}`;
+    document.getElementById('clock').textContent = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+    document.getElementById('clockDate').textContent = `${["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
   }
   setInterval(tick, 1000); tick();
 
-  // UI UPDATES
+  // --- MODE TOGGLING ---
+  function toggleMode() {
+      const btn = document.getElementById('modeBtn');
+      if(currentMode === "SCAN") {
+          currentMode = "REGISTER";
+          btn.textContent = "⬅️ BACK TO SCANNER";
+          document.getElementById('infoCard').style.display = "none";
+          document.getElementById('regCard').style.display = "flex";
+          document.getElementById('aiStatus').textContent = "REGISTRATION MODE: ENTER CODE & CLICK SAVE";
+          document.getElementById('aiStatus').style.color = "var(--accent)";
+      } else {
+          currentMode = "SCAN";
+          btn.textContent = "⚙️ REGISTRATION MODE";
+          document.getElementById('infoCard').style.display = "flex";
+          document.getElementById('regCard').style.display = "none";
+          document.getElementById('aiStatus').textContent = "🟢 LIVE SCANNER ACTIVE";
+          document.getElementById('aiStatus').style.color = "var(--success)";
+      }
+  }
+
+  // --- UI UPDATES ---
   const empNameEl = document.getElementById('empName');
   const statusLineEl = document.getElementById('statusLine');
   const avatarBox = document.getElementById('avatarBox');
 
   function setStatusLine(s, type){
-    const txt = String(s || "READY").trim().toUpperCase();
-    statusLineEl.textContent = txt;
-    statusLineEl.className = "status-pill"; // reset
-
+    statusLineEl.textContent = String(s || "READY").trim().toUpperCase();
+    statusLineEl.className = "status-pill";
     if (type === "proc") statusLineEl.classList.add("status-proc");
     if (type === "in") { statusLineEl.classList.add("status-in"); triggerSuccessFeedback(); }
     if (type === "out") { statusLineEl.classList.add("status-out"); triggerErrorFeedback(); }
@@ -208,10 +239,7 @@
 
   function setAvatar(src){
     if (!src){ avatarBox.innerHTML = '<div class="avatar-placeholder">👤</div>'; return; }
-    avatarBox.innerHTML = '';
-    const img = document.createElement("img");
-    img.src = src + (src.includes("?") ? "&" : "?") + "v=" + Date.now();
-    avatarBox.appendChild(img);
+    avatarBox.innerHTML = `<img src="${src}?v=${Date.now()}">`;
   }
 
   async function runStartupEmployeeUpdate(){
@@ -220,32 +248,25 @@
       await fetchAPI({ page: 'api_startup' });
       setStatusLine("READY");
       startAIEngine();
-    } catch(err) {
-      setStatusLine("ERROR", "out");
-    }
+    } catch(err) { setStatusLine("ERROR", "out"); }
   }
 
-  // --- 🤖 LIVE AI ENGINE ---
+  // --- 🤖 AI ENGINE ---
   const video = document.getElementById('video');
   const overlay = document.getElementById('overlay');
-  const aiStatus = document.getElementById('aiStatus');
   let faceMatcher = null;
   let isScanning = false;
   let submitBusy = false;
-  let scanCooldowns = {}; 
+  
+  // CONFIRMATION LOGIC
+  let isConfirming = false;
+  let pendingEmpCode = "";
 
-  // Handle resizing canvas dynamically if screen changes
   window.addEventListener('resize', () => {
-     if(video.videoWidth > 0) {
-        overlay.width = video.clientWidth;
-        overlay.height = video.clientHeight;
-     }
+     if(video.videoWidth > 0) { overlay.width = video.clientWidth; overlay.height = video.clientHeight; }
   });
 
   async function startAIEngine() {
-      aiStatus.textContent = "LOADING AI MODELS...";
-      aiStatus.style.color = "var(--warning)";
-      
       const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
       await Promise.all([
         faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
@@ -253,84 +274,88 @@
         faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
       ]);
       
-      aiStatus.textContent = "DOWNLOADING DATABASE...";
       try {
           const res = await fetchAPI({ page: 'api_get_faces' });
-          if(!res.ok || !res.faces || res.faces.length === 0) {
-             aiStatus.textContent = "NO FACES IN DATABASE"; 
-             aiStatus.style.color = "var(--error)";
-             return;
+          if(res.ok && res.faces) {
+              const labeledDescriptors = res.faces.map(f => {
+                 globalFacesMap[f.code] = f.name; // Save name for popup
+                 const float32Array = new Float32Array(JSON.parse(f.descriptor));
+                 return new faceapi.LabeledFaceDescriptors(f.code, [float32Array]); 
+              });
+              if(labeledDescriptors.length > 0) {
+                 faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6); // 0.6 Strictness
+              }
           }
-
-          const labeledDescriptors = res.faces.map(f => {
-             const float32Array = new Float32Array(JSON.parse(f.descriptor));
-             return new faceapi.LabeledFaceDescriptors(f.code, [float32Array]); 
-          });
-
-          faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
           
-          aiStatus.textContent = "STARTING CAMERA...";
-          
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } });
           video.srcObject = stream;
-          aiStatus.textContent = "🟢 LIVE SCANNER ACTIVE";
-          aiStatus.style.color = "var(--success)";
+          document.getElementById('aiStatus').textContent = "🟢 LIVE SCANNER ACTIVE";
           isScanning = true;
-          
-          video.onloadedmetadata = () => {
-              // Match canvas physical size to video element size for responsive mapping
-              overlay.width = video.clientWidth;
-              overlay.height = video.clientHeight;
-          };
-
+          video.onloadedmetadata = () => { overlay.width = video.clientWidth; overlay.height = video.clientHeight; };
           scanLoop();
-      } catch(e) { 
-          aiStatus.textContent = "CAMERA BLOCKED - ALLOW IN SETTINGS"; 
-          aiStatus.style.color = "var(--error)"; 
-      }
+      } catch(e) { document.getElementById('aiStatus').textContent = "CAMERA ERROR"; }
   }
 
   async function scanLoop() {
       if(!isScanning) return;
 
-      // Because object-fit: cover scales the video, we map results to the physical client width
-      const displaySize = { width: video.clientWidth, height: video.clientHeight };
       const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
-      
       const ctx = overlay.getContext('2d');
       ctx.clearRect(0, 0, overlay.width, overlay.height);
       
       if (detections.length > 0) {
-          const resizedDetections = faceapi.resizeResults(detections, displaySize);
-          faceapi.draw.drawDetections(overlay, resizedDetections);
-
-          resizedDetections.forEach(d => {
-              const bestMatch = faceMatcher.findBestMatch(d.descriptor);
+          const resizedDetections = faceapi.resizeResults(detections, { width: video.clientWidth, height: video.clientHeight });
+          
+          // Only draw boxes if we are NOT in the middle of a confirmation or registration
+          if(!isConfirming && currentMode === "SCAN" && !submitBusy) {
+              faceapi.draw.drawDetections(overlay, resizedDetections);
               
-              if (bestMatch.label !== "unknown" && bestMatch.distance < 0.5) {
-                 handleRecognizedFace(bestMatch.label);
+              if(faceMatcher) {
+                  resizedDetections.forEach(d => {
+                      const bestMatch = faceMatcher.findBestMatch(d.descriptor);
+                      if (bestMatch.label !== "unknown" && bestMatch.distance < 0.6) {
+                         triggerConfirmation(bestMatch.label);
+                      }
+                  });
               }
-          });
+          }
       }
       requestAnimationFrame(scanLoop);
   }
 
-  function handleRecognizedFace(empCode) {
-      if (submitBusy) return; 
-      const now = Date.now();
-      if (scanCooldowns[empCode] && (now - scanCooldowns[empCode] < 7000)) return; 
-      scanCooldowns[empCode] = now;
-      submitScan(empCode);
+  // --- NEW: CONFIRMATION POPUP FLOW ---
+  function triggerConfirmation(empCode) {
+      if (submitBusy || isConfirming || currentMode !== "SCAN") return; 
+      
+      isConfirming = true;
+      pendingEmpCode = empCode;
+      
+      // Look up their real name, or fallback to Code
+      const realName = globalFacesMap[empCode] || empCode;
+      
+      document.getElementById('confirmName').textContent = `${realName} (${empCode})`;
+      document.getElementById('confirmModal').style.display = 'flex';
   }
 
+  function confirmNo() {
+      document.getElementById('confirmModal').style.display = 'none';
+      isConfirming = false;
+      pendingEmpCode = "";
+  }
+
+  function confirmYes() {
+      document.getElementById('confirmModal').style.display = 'none';
+      submitScan(pendingEmpCode);
+  }
+
+  // --- ATTENDANCE SUBMIT ---
   async function submitScan(empCode){
     submitBusy = true;
     setStatusLine("ANALYZING...", "proc");
-    empNameEl.textContent = "PROCESSING CODE: " + empCode;
+    empNameEl.textContent = "PROCESSING...";
 
     try {
       const res = await fetchAPI({ page: 'api_scan', code: empCode, adminToken: adminToken });
-      submitBusy = false;
       
       if(!res || (!res.ok && res.action !== "ABSENT" && res.action !== "IN" && res.action !== "OUT" && res.action !== "DONE")) {
           throw new Error(res.statusLine || "FAILED");
@@ -345,23 +370,62 @@
       
       setStatusLine(res.statusLine, type);
       
-      // Auto Reset UI
+      // Reset Scanner
       setTimeout(() => {
          empNameEl.textContent = "WAITING FOR SCAN";
          setAvatar("");
          setStatusLine("READY", "");
+         submitBusy = false;
+         isConfirming = false;
       }, 3500);
 
     } catch(err) {
-      submitBusy = false;
-      setAvatar("");
       empNameEl.textContent = "SCAN ERROR";
       setStatusLine(err.message || "SERVER TIMEOUT", "out");
       setTimeout(() => { 
          empNameEl.textContent = "WAITING FOR SCAN";
          setStatusLine("READY", ""); 
+         submitBusy = false;
+         isConfirming = false;
       }, 3500);
     }
+  }
+
+  // --- NEW: REGISTRATION SYSTEM ---
+  async function registerNewFace() {
+      if(currentMode !== "REGISTER") return;
+      
+      const codeInput = document.getElementById('regCode').value.trim().toUpperCase();
+      if(!codeInput) return alert("Please enter an Employee Code first!");
+
+      document.getElementById('aiStatus').textContent = "MAPPING FACE... LOOK AT CAMERA";
+      
+      const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+      if(!detection) {
+          document.getElementById('aiStatus').textContent = "ERROR: NO FACE DETECTED. TRY AGAIN.";
+          return;
+      }
+
+      const descStr = JSON.stringify(Array.from(detection.descriptor));
+      document.getElementById('aiStatus').textContent = "SAVING TO DATABASE...";
+
+      try {
+          const res = await fetchAPI({ page: 'api_register', code: codeInput, descriptor: descStr });
+          if(res.ok) {
+              alert(`Success! ${codeInput} is now registered.`);
+              document.getElementById('regCode').value = ""; // Clear input
+              document.getElementById('aiStatus').textContent = "RELOADING AI DATABASE...";
+              // Reload faces so the scanner knows them immediately
+              runStartupEmployeeUpdate(); 
+              toggleMode(); // Kick back to Scanner mode automatically
+          } else {
+              alert("Save Failed: " + (res.error || "Unknown Error"));
+              document.getElementById('aiStatus').textContent = "REGISTRATION MODE: ENTER CODE & CLICK SAVE";
+          }
+      } catch(e) { 
+          alert("Server Communication Error!");
+          document.getElementById('aiStatus').textContent = "REGISTRATION MODE: ENTER CODE & CLICK SAVE";
+      }
   }
 </script>
 </body>
