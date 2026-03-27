@@ -3,17 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-  <title>Mikana AI Live Scanner</title>
+  <title>Mikana AI Tablet Scanner</title>
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
   
   <script>
     // =========================================================================
     // ⚠️ PASTE YOUR GOOGLE WEB APP URL HERE:
-    // Make sure your Google Script is Deployed with access set to "Anyone"
     // =========================================================================
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0TytppAu3jEDM5c_tu8tyO_mMn5Puco8sPEHYmrky3U9qzh_E8BUuI9UTeYOv_ND-OA/exec"; 
     
-    // API Fetcher
     async function fetchAPI(params) {
       const url = new URL(SCRIPT_URL);
       Object.keys(params).forEach(k => url.searchParams.append(k, params[k]));
@@ -25,119 +23,103 @@
   </script>
 
   <style>
+    /* MODERN RESPONSIVE CSS */
+    :root { --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --sub: #94a3b8; --border: #334155; --accent: #38bdf8; --success: #10b981; --error: #ef4444; --warning: #f59e0b; }
     *, *::before, *::after { box-sizing: border-box; }
-    html, body { height:100%; margin:0; }
-    body{
-      overflow:hidden;
-      font-family: Arial, Helvetica, sans-serif;
-      background: radial-gradient(900px 500px at 40% 30%, rgba(45,140,255,.22), transparent 60%), radial-gradient(700px 400px at 70% 80%, rgba(80,220,255,.14), transparent 55%), linear-gradient(180deg, #0b1b2a 0%, #0f2a44 100%);
-      transition: background-color 0.4s ease; 
+    html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg); color: var(--text); overflow: hidden; }
+    
+    body.flash-success .cam-container { box-shadow: 0 0 40px rgba(16, 185, 129, 0.6); border-color: var(--success); }
+    body.flash-error .cam-container { box-shadow: 0 0 40px rgba(239, 68, 68, 0.6); border-color: var(--error); }
+
+    /* ADMIN GATE OVERLAY */
+    .gate { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(8px); padding: 20px; }
+    .gateCard { background: var(--panel); border: 1px solid var(--border); padding: 30px; border-radius: 20px; text-align: center; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+    .gateTitle { font-size: 20px; font-weight: 900; color: var(--accent); margin-bottom: 5px; }
+    .gateInput { width: 100%; background: var(--bg); border: 2px solid var(--border); color: white; padding: 15px; border-radius: 12px; margin: 15px 0; font-size: 16px; text-align: center; font-weight: bold; outline: none; transition: border-color 0.2s; }
+    .gateInput:focus { border-color: var(--accent); }
+    .gateBtn { width: 100%; background: var(--accent); color: #000; font-weight: 900; font-size: 16px; padding: 15px; border: none; border-radius: 12px; cursor: pointer; transition: 0.2s; }
+    .gateBtn:active { transform: scale(0.98); }
+    .gateErr { color: var(--error); font-size: 14px; font-weight: bold; margin-top: 10px; min-height: 20px; }
+
+    /* MAIN APP LAYOUT */
+    #viewport { display: none; flex-direction: column; height: 100vh; padding: 15px; gap: 15px; max-width: 1200px; margin: 0 auto; }
+    
+    /* HEADER */
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: var(--panel); border-radius: 16px; border: 1px solid var(--border); flex-shrink: 0; }
+    .header-title { font-weight: 900; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+    .header-clock { text-align: right; }
+    .time { font-size: 20px; font-weight: 900; font-variant-numeric: tabular-nums; }
+    .date { font-size: 12px; color: var(--sub); font-weight: 600; text-transform: uppercase; }
+
+    /* GIANT CAMERA AREA */
+    .cam-container { flex: 1; position: relative; background: #000; border-radius: 20px; overflow: hidden; border: 3px solid var(--border); transition: all 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
+    video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+    canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+    .ai-status-overlay { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); padding: 8px 16px; border-radius: 20px; font-weight: 900; font-size: 14px; color: var(--warning); backdrop-filter: blur(4px); z-index: 10; text-align: center; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1); }
+
+    /* BOTTOM INFO CARD (AVATAR STYLE) */
+    .info-card { background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 15px 20px; display: flex; align-items: center; gap: 20px; flex-shrink: 0; transition: all 0.3s ease; }
+    .avatar-wrapper { width: 70px; height: 70px; border-radius: 50%; background: var(--bg); border: 3px solid var(--border); overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .avatar-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+    .avatar-placeholder { font-size: 24px; color: var(--sub); }
+    
+    .emp-details { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .emp-name { font-size: 22px; font-weight: 900; margin: 0 0 4px 0; color: var(--text); }
+    .status-pill { align-self: flex-start; padding: 6px 14px; border-radius: 12px; font-size: 14px; font-weight: 900; background: var(--bg); border: 1px solid var(--border); color: var(--sub); transition: all 0.2s; }
+    
+    /* STATUS COLORS */
+    .status-in { background: rgba(16, 185, 129, 0.15); border-color: var(--success); color: var(--success); }
+    .status-out { background: rgba(239, 68, 68, 0.15); border-color: var(--error); color: var(--error); }
+    .status-proc { background: rgba(245, 158, 11, 0.15); border-color: var(--warning); color: var(--warning); }
+
+    /* MOBILE TWEAKS */
+    @media (max-width: 600px) {
+       .emp-name { font-size: 18px; }
+       .avatar-wrapper { width: 60px; height: 60px; }
+       .info-card { padding: 12px; gap: 12px; }
     }
-    body.flash-success { background-color: rgba(40, 167, 69, 0.4); }
-
-    #viewport { position:fixed; inset:0; overflow:hidden; display:none; background: transparent; }
-    #app { position:absolute; transform-origin: top left; }
-
-    .gate{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,.55); z-index: 9999; padding: 14px; }
-    .gateCard{ width: min(420px, 92vw); background:#fff; border-radius: 14px; border: 1px solid rgba(0,0,0,.25); box-shadow: 0 10px 25px rgba(0,0,0,.22); padding: 16px; text-align:center; }
-    .gateTitle{ font-weight: 900; font-size: 18px; letter-spacing: .8px; }
-    .gateSub{ margin-top: 6px; font-size: 12px; color:#444; font-weight: 700; letter-spacing: .3px; }
-    .gateInput{ margin-top: 14px; width:100%; text-align:center; font-weight:900; font-size: 16px; padding: 12px 10px; border-radius: 12px; border: 2px solid #c9c9c9; outline:none; }
-    .gateBtn{ width:100%; margin-top: 10px; padding: 12px 14px; border-radius: 12px; border: 0; background:#222; color:#fff; font-weight: 900; letter-spacing: .8px; cursor:pointer; font-size: 16px; }
-    .gateErr{ margin-top: 10px; min-height: 18px; font-weight: 900; color:#c62828; font-size: 12px; letter-spacing: .4px; }
-
-    .frameGlowWrap{ position: relative; width: 1366px; height: 768px; }
-    .frame{ position: relative; z-index: 1; width: 1366px; height: 768px; border-radius: 14px; background: linear-gradient(#222,#111); border: 1px solid rgba(255,255,255,.18); box-shadow: 0 10px 25px rgba(0,0,0,.22); overflow: hidden; display:flex; flex-direction:column; }
-    .titlebar{ height: 44px; display:flex; align-items:center; justify-content:space-between; padding: 0 14px; color:#fff; font-weight:700; user-select:none; }
-    .content{ position: relative; padding: 12px; display:block; flex: 1; height: 100%; }
-    .panel{ background:#efefef; border-radius: 14px; border: 1px solid rgba(0,0,0,.25); padding: 12px; overflow:hidden; display:flex; flex-direction:column; gap: 12px; }
-    .card{ background:#fff; border:1px solid #bdbdbd; border-radius: 12px; padding: 12px; }
-    .center{ text-align:center; }
-    
-    .clockWrap{ border-radius: 12px; background: linear-gradient(#5b5b5b,#1f1f1f); border: 1px solid rgba(255,255,255,.2); padding: 14px 10px; }
-    .clock{ font-weight: 900; font-size: 56px; letter-spacing: 1px; color:#fff; margin: 0; }
-    .clockDate{ color:#f1f1f1; font-weight:700; letter-spacing:.6px; margin-top: 6px; font-size: 16px; }
-
-    /* AI CAMERA WRAPPER */
-    .camWrap { position:relative; width:100%; height:260px; border-radius:12px; background:#000; overflow:hidden; border:2px solid #334155; }
-    video { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; transform: scaleX(-1); }
-    canvas { position:absolute; top:0; left:0; width:100%; height:100%; transform: scaleX(-1); }
-    #aiStatus { position:absolute; bottom:10px; width:100%; text-align:center; color:#facc15; font-weight:900; z-index:10; font-size:14px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
-    
-    .hlabel{ font-weight: 900; letter-spacing: .7px; font-size: 18px; margin: 10px 0 10px; }
-    .fieldValue{ text-align:center; padding: 12px 10px; border: 1px solid #bdbdbd; border-radius: 10px; background:#fff; min-height: 46px; font-weight:900; transition: all .18s ease; }
-    
-    .statusProcessing{ background: #fff7e6 !important; border-color: #f0b429 !important; color: #9a6700 !important; }
-    .statusInRecorded{ background: #edfdf3 !important; border-color: #34a853 !important; color: #18794e !important; }
-    .statusOutRecorded{ background: #fff1f2 !important; border-color: #e53935 !important; color: #b42318 !important; }
-    .statusNeutral{ background: #fff !important; border-color: #bdbdbd !important; color: #111 !important; }
-
-    .imgBoxExpanded{ flex: 1; height: 100%; min-height: 0; }
-    .leftInfoCard{ margin-top:12px; }
-    .imgBox{ width: 100%; border-radius: 14px; border: 1px solid #bdbdbd; background:#fff; overflow:hidden; display:flex; align-items:center; justify-content:center; font-weight:900; color:#666; }
-    .imgBox img{ width: 100%; height: 100%; object-fit: contain; object-position: center; display:block; }
   </style>
 </head>
 <body>
 
 <div id="adminGate" class="gate">
   <div class="gateCard">
-    <div class="gateTitle">AI SCANNER ACCESS</div>
-    <div class="gateSub">Enter admin password to open live scanner.</div>
-    <input id="adminPass" class="gateInput" type="password" placeholder="ADMIN PASSWORD" />
+    <div class="gateTitle">🤖 AI SCANNER</div>
+    <div style="color:var(--sub); font-size:14px; margin-bottom: 20px;">Enter admin password to unlock device.</div>
+    <input id="adminPass" class="gateInput" type="password" placeholder="Password" />
     <button id="adminBtn" class="gateBtn" type="button">UNLOCK</button>
     <div id="adminErr" class="gateErr"></div>
   </div>
 </div>
 
 <div id="viewport">
-  <div id="app">
-    <div class="frameGlowWrap" id="frameWrap">
-      <div class="frame" id="frame">
-        <div class="titlebar">
-          <div id="topTitle">Mikana Desktop AI Scanner</div>
-          <div style="opacity:.85">© TEAMBA</div>
-        </div>
-        <div class="content">
-          <div style="display:grid; grid-template-columns: 0.95fr 1.35fr; gap: 12px; height:100%;">
-            
-            <div class="panel" style="overflow-y:auto;">
-              <div class="card center">
-                <div class="clockWrap">
-                  <div class="clock" id="clock">00:00:00</div>
-                  <div class="clockDate" id="clockDate">—</div>
-                </div>
-              </div>
-              
-              <div class="card center" style="padding:10px;">
-                 <div class="camWrap">
-                    <video id="video" autoplay muted playsinline></video>
-                    <canvas id="overlay"></canvas>
-                    <div id="aiStatus">WAITING FOR ADMIN UNLOCK...</div>
-                 </div>
-              </div>
-              
-              <div class="card center leftInfoCard">
-                <div class="hlabel">EMPLOYEE NAME</div>
-                <div class="fieldValue" id="empName">—</div>
-                <div class="hlabel" style="margin-top:14px">STATUS</div>
-                <div class="fieldValue statusNeutral" id="statusLine">READY</div>
-              </div>
-            </div>
-            
-            <div class="panel">
-              <div class="imgBox imgBoxExpanded" id="empImageBox">EMPLOYEE IMAGE</div>
-            </div>
-          </div>
-        </div>
-      </div>
+  <div class="header">
+    <div class="header-title">🤖 TEAMBA AI</div>
+    <div class="header-clock">
+      <div class="time" id="clock">00:00:00</div>
+      <div class="date" id="clockDate">—</div>
+    </div>
+  </div>
+
+  <div class="cam-container" id="camContainer">
+    <video id="video" autoplay muted playsinline></video>
+    <canvas id="overlay"></canvas>
+    <div class="ai-status-overlay" id="aiStatus">WAITING FOR ADMIN UNLOCK...</div>
+  </div>
+
+  <div class="info-card">
+    <div class="avatar-wrapper" id="avatarBox">
+       <div class="avatar-placeholder">👤</div>
+    </div>
+    <div class="emp-details">
+      <h2 class="emp-name" id="empName">WAITING FOR SCAN</h2>
+      <div class="status-pill" id="statusLine">READY</div>
     </div>
   </div>
 </div>
 
 <script>
-  function bustUrl(url){ const s = String(url || "").trim(); return s ? s + (s.includes("?") ? "&" : "?") + "v=" + Date.now() : ""; }
-
+  // AUDIO BEEP
   function triggerSuccessFeedback() {
     document.body.classList.add('flash-success');
     setTimeout(() => { document.body.classList.remove('flash-success'); }, 400); 
@@ -153,6 +135,12 @@
     } catch (e) {}
   }
 
+  function triggerErrorFeedback() {
+    document.body.classList.add('flash-error');
+    setTimeout(() => { document.body.classList.remove('flash-error'); }, 400); 
+  }
+
+  // APP LOGIC
   let adminToken = "";
   const adminGate = document.getElementById('adminGate');
   const adminPass = document.getElementById('adminPass');
@@ -164,8 +152,7 @@
 
   function unlockApp(){
     adminGate.style.display = "none";
-    viewport.style.display = "block";
-    scaleToFit();
+    viewport.style.display = "flex"; // Use flex for responsive layout
     runStartupEmployeeUpdate();
   }
 
@@ -174,7 +161,7 @@
     if (!p){ setAdminError("ENTER PASSWORD"); adminPass.focus(); return; }
     
     if(SCRIPT_URL === "YOUR_GOOGLE_WEB_APP_URL_HERE") {
-        setAdminError("YOU FORGOT TO PASTE YOUR SCRIPT URL IN THE HTML CODE!"); return;
+        setAdminError("PASTE YOUR SCRIPT URL IN THE HTML CODE!"); return;
     }
 
     setAdminError("CHECKING..."); adminBtn.disabled = true;
@@ -195,18 +182,7 @@
   adminBtn.addEventListener('click', tryUnlock);
   adminPass.addEventListener('keydown', (e)=>{ if (e.key === "Enter"){ e.preventDefault(); tryUnlock(); } });
 
-  const OUTER_PAD = 12;
-  function getViewportSize(){ return window.visualViewport ? { w: window.visualViewport.width, h: window.visualViewport.height } : { w: window.innerWidth, h: window.innerHeight }; }
-  function scaleToFit(){
-    const frameWrap = document.getElementById('frameWrap'); const app = document.getElementById('app');
-    const baseW = 1366, baseH = 768; const { w: vw, h: vh } = getViewportSize();
-    const s = Math.min(Math.max(100, vw - OUTER_PAD*2) / baseW, Math.max(100, vh - OUTER_PAD*2) / baseH);
-    app.style.transform = `scale(${s})`;
-    app.style.left = (OUTER_PAD + Math.max(0, ((vw - OUTER_PAD*2) - (baseW * s)) / 2)) + "px";
-    app.style.top  = (OUTER_PAD + Math.max(0, ((vh - OUTER_PAD*2) - (baseH * s)) / 2)) + "px";
-  }
-  window.addEventListener('resize', scaleToFit);
-
+  // CLOCK
   function pad2(n){ return String(n).padStart(2,'0'); }
   function tick(){
     const d = new Date();
@@ -215,42 +191,38 @@
   }
   setInterval(tick, 1000); tick();
 
+  // UI UPDATES
   const empNameEl = document.getElementById('empName');
   const statusLineEl = document.getElementById('statusLine');
-  const empImageBox = document.getElementById('empImageBox');
+  const avatarBox = document.getElementById('avatarBox');
 
-  function setStatusLine(s){
+  function setStatusLine(s, type){
     const txt = String(s || "READY").trim().toUpperCase();
     statusLineEl.textContent = txt;
-    statusLineEl.classList.remove("statusProcessing", "statusInRecorded", "statusOutRecorded", "statusNeutral");
+    statusLineEl.className = "status-pill"; // reset
 
-    if (txt.indexOf("PROCESSING") !== -1) statusLineEl.classList.add("statusProcessing");
-    else if (txt.indexOf("IN RECORDED") !== -1 || txt.indexOf("OUT RECORDED") !== -1) {
-      if (txt.indexOf("IN RECORDED") !== -1) statusLineEl.classList.add("statusInRecorded");
-      if (txt.indexOf("OUT RECORDED") !== -1) statusLineEl.classList.add("statusOutRecorded");
-      triggerSuccessFeedback();
-    }
-    else statusLineEl.classList.add("statusNeutral");
+    if (type === "proc") statusLineEl.classList.add("status-proc");
+    if (type === "in") { statusLineEl.classList.add("status-in"); triggerSuccessFeedback(); }
+    if (type === "out") { statusLineEl.classList.add("status-out"); triggerErrorFeedback(); }
+  }
+
+  function setAvatar(src){
+    if (!src){ avatarBox.innerHTML = '<div class="avatar-placeholder">👤</div>'; return; }
+    avatarBox.innerHTML = '';
+    const img = document.createElement("img");
+    img.src = src + (src.includes("?") ? "&" : "?") + "v=" + Date.now();
+    avatarBox.appendChild(img);
   }
 
   async function runStartupEmployeeUpdate(){
-    setStatusLine("UPDATING RECORDS...");
+    setStatusLine("UPDATING...", "proc");
     try {
       await fetchAPI({ page: 'api_startup' });
       setStatusLine("READY");
-      startAIEngine(); // 🔥 START THE LIVE AI
+      startAIEngine();
     } catch(err) {
-      setStatusLine("ERROR UPDATING");
+      setStatusLine("ERROR", "out");
     }
-  }
-
-  function setEmployeeImage(src){
-    const s = bustUrl(String(src || "").trim());
-    if (!s){ empImageBox.innerHTML = "NO IMAGE"; return; }
-    empImageBox.innerHTML = "";
-    const img = document.createElement("img");
-    img.onerror = () => { empImageBox.innerHTML = "IMAGE NOT AVAILABLE"; };
-    img.src = s; empImageBox.appendChild(img);
   }
 
   // --- 🤖 LIVE AI ENGINE ---
@@ -262,8 +234,18 @@
   let submitBusy = false;
   let scanCooldowns = {}; 
 
+  // Handle resizing canvas dynamically if screen changes
+  window.addEventListener('resize', () => {
+     if(video.videoWidth > 0) {
+        overlay.width = video.clientWidth;
+        overlay.height = video.clientHeight;
+     }
+  });
+
   async function startAIEngine() {
       aiStatus.textContent = "LOADING AI MODELS...";
+      aiStatus.style.color = "var(--warning)";
+      
       const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
       await Promise.all([
         faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
@@ -271,11 +253,13 @@
         faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
       ]);
       
-      aiStatus.textContent = "DOWNLOADING FACE DATABASE...";
+      aiStatus.textContent = "DOWNLOADING DATABASE...";
       try {
           const res = await fetchAPI({ page: 'api_get_faces' });
           if(!res.ok || !res.faces || res.faces.length === 0) {
-             aiStatus.textContent = "NO FACES REGISTERED IN DATABASE"; return;
+             aiStatus.textContent = "NO FACES IN DATABASE"; 
+             aiStatus.style.color = "var(--error)";
+             return;
           }
 
           const labeledDescriptors = res.faces.map(f => {
@@ -287,32 +271,37 @@
           
           aiStatus.textContent = "STARTING CAMERA...";
           
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
           video.srcObject = stream;
-          aiStatus.textContent = "LIVE SCANNER READY";
-          aiStatus.style.color = "#10b981";
+          aiStatus.textContent = "🟢 LIVE SCANNER ACTIVE";
+          aiStatus.style.color = "var(--success)";
           isScanning = true;
           
-          overlay.width = video.videoWidth || 640;
-          overlay.height = video.videoHeight || 480;
           video.onloadedmetadata = () => {
-              overlay.width = video.videoWidth;
-              overlay.height = video.videoHeight;
+              // Match canvas physical size to video element size for responsive mapping
+              overlay.width = video.clientWidth;
+              overlay.height = video.clientHeight;
           };
 
           scanLoop();
-      } catch(e) { aiStatus.textContent = "CAMERA BLOCKED. ALLOW CAMERA IN SETTINGS."; aiStatus.style.color = "#ef4444"; }
+      } catch(e) { 
+          aiStatus.textContent = "CAMERA BLOCKED - ALLOW IN SETTINGS"; 
+          aiStatus.style.color = "var(--error)"; 
+      }
   }
 
   async function scanLoop() {
       if(!isScanning) return;
 
+      // Because object-fit: cover scales the video, we map results to the physical client width
+      const displaySize = { width: video.clientWidth, height: video.clientHeight };
       const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
+      
       const ctx = overlay.getContext('2d');
       ctx.clearRect(0, 0, overlay.width, overlay.height);
       
       if (detections.length > 0) {
-          const resizedDetections = faceapi.resizeResults(detections, { width: video.videoWidth, height: video.videoHeight });
+          const resizedDetections = faceapi.resizeResults(detections, displaySize);
           faceapi.draw.drawDetections(overlay, resizedDetections);
 
           resizedDetections.forEach(d => {
@@ -336,7 +325,8 @@
 
   async function submitScan(empCode){
     submitBusy = true;
-    setStatusLine("PROCESSING...");
+    setStatusLine("ANALYZING...", "proc");
+    empNameEl.textContent = "PROCESSING CODE: " + empCode;
 
     try {
       const res = await fetchAPI({ page: 'api_scan', code: empCode, adminToken: adminToken });
@@ -346,25 +336,33 @@
           throw new Error(res.statusLine || "FAILED");
       }
 
-      empNameEl.textContent = (res && res.empName) ? res.empName : "—";
-      setEmployeeImage(res && res.imageUrl ? res.imageUrl : "");
-      setStatusLine(res && res.statusLine ? res.statusLine : "READY");
+      empNameEl.textContent = (res && res.empName) ? res.empName : empCode;
+      setAvatar(res && res.imageUrl ? res.imageUrl : "");
       
+      let type = "proc";
+      if(res.action === "IN") type = "in";
+      if(res.action === "OUT" || res.action === "ABSENT") type = "out";
+      
+      setStatusLine(res.statusLine, type);
+      
+      // Auto Reset UI
       setTimeout(() => {
-         empNameEl.textContent = "—";
-         setEmployeeImage("");
-         setStatusLine("READY");
-      }, 3000);
+         empNameEl.textContent = "WAITING FOR SCAN";
+         setAvatar("");
+         setStatusLine("READY", "");
+      }, 3500);
+
     } catch(err) {
       submitBusy = false;
-      setEmployeeImage("");
-      statusLineEl.textContent = "ERROR - " + (err.message || "SERVER");
-      statusLineEl.className = "fieldValue statusOutRecorded";
-      setTimeout(() => { setStatusLine("READY"); }, 3000);
+      setAvatar("");
+      empNameEl.textContent = "SCAN ERROR";
+      setStatusLine(err.message || "SERVER TIMEOUT", "out");
+      setTimeout(() => { 
+         empNameEl.textContent = "WAITING FOR SCAN";
+         setStatusLine("READY", ""); 
+      }, 3500);
     }
   }
-
-  setStatusLine("LOCKED");
 </script>
 </body>
 </html>
