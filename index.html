@@ -8,7 +8,7 @@
   
   <script>
     // =========================================================================
-    // ⚠️ PASTE YOUR GOOGLE WEB APP URL HERE:
+    // ⚠️ YOUR GOOGLE WEB APP URL:
     // =========================================================================
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0TytppAu3jEDM5c_tu8tyO_mMn5Puco8sPEHYmrky3U9qzh_E8BUuI9UTeYOv_ND-OA/exec"; 
     
@@ -251,7 +251,7 @@
     } catch(err) { setStatusLine("ERROR", "out"); }
   }
 
-  // --- 🤖 AI ENGINE ---
+  // --- 🤖 AI ENGINE (OPTIMIZED) ---
   const video = document.getElementById('video');
   const overlay = document.getElementById('overlay');
   let faceMatcher = null;
@@ -299,22 +299,31 @@
   async function scanLoop() {
       if(!isScanning) return;
 
-      const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
+      // 🔥 OPTIMIZATION: Lowered minConfidence to 0.4 to detect faces in darker lighting
+      const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 });
+      const detections = await faceapi.detectAllFaces(video, options).withFaceLandmarks().withFaceDescriptors();
+      
       const ctx = overlay.getContext('2d');
       ctx.clearRect(0, 0, overlay.width, overlay.height);
       
       if (detections.length > 0) {
           const resizedDetections = faceapi.resizeResults(detections, { width: video.clientWidth, height: video.clientHeight });
           
-          // Only draw boxes if we are NOT in the middle of a confirmation or registration
           if(!isConfirming && currentMode === "SCAN" && !submitBusy) {
-              faceapi.draw.drawDetections(overlay, resizedDetections);
               
               if(faceMatcher) {
                   resizedDetections.forEach(d => {
                       const bestMatch = faceMatcher.findBestMatch(d.descriptor);
+                      
+                      // 🔥 OPTIMIZATION: If recognized, draw GREEN box and pop up
                       if (bestMatch.label !== "unknown" && bestMatch.distance < 0.6) {
-                         triggerConfirmation(bestMatch.label);
+                          const drawBox = new faceapi.draw.DrawBox(d.detection.box, { label: bestMatch.label, boxColor: '#10b981' });
+                          drawBox.draw(overlay);
+                          triggerConfirmation(bestMatch.label);
+                      } else {
+                          // 🔥 OPTIMIZATION: If face is seen but UNRECOGNIZED, draw RED box to let user know
+                          const drawBox = new faceapi.draw.DrawBox(d.detection.box, { label: "Unrecognized", boxColor: '#ef4444' });
+                          drawBox.draw(overlay);
                       }
                   });
               }
@@ -323,14 +332,13 @@
       requestAnimationFrame(scanLoop);
   }
 
-  // --- NEW: CONFIRMATION POPUP FLOW ---
+  // --- CONFIRMATION POPUP FLOW ---
   function triggerConfirmation(empCode) {
       if (submitBusy || isConfirming || currentMode !== "SCAN") return; 
       
       isConfirming = true;
       pendingEmpCode = empCode;
       
-      // Look up their real name, or fallback to Code
       const realName = globalFacesMap[empCode] || empCode;
       
       document.getElementById('confirmName').textContent = `${realName} (${empCode})`;
@@ -391,7 +399,7 @@
     }
   }
 
-  // --- NEW: REGISTRATION SYSTEM ---
+  // --- REGISTRATION SYSTEM ---
   async function registerNewFace() {
       if(currentMode !== "REGISTER") return;
       
@@ -400,6 +408,7 @@
 
       document.getElementById('aiStatus').textContent = "MAPPING FACE... LOOK AT CAMERA";
       
+      // Kept registration strictness default to ensure high-quality enrollment photos
       const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
       if(!detection) {
           document.getElementById('aiStatus').textContent = "ERROR: NO FACE DETECTED. TRY AGAIN.";
