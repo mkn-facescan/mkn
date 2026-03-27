@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+  <title>Mikana AI Live Scanner</title>
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+  
+  <script>
+    // =========================================================================
+    // ⚠️ PASTE YOUR GOOGLE WEB APP URL HERE:
+    // Make sure your Google Script is Deployed with access set to "Anyone"
+    // =========================================================================
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0TytppAu3jEDM5c_tu8tyO_mMn5Puco8sPEHYmrky3U9qzh_E8BUuI9UTeYOv_ND-OA/exec"; 
+    
+    // API Fetcher
+    async function fetchAPI(params) {
+      const url = new URL(SCRIPT_URL);
+      Object.keys(params).forEach(k => url.searchParams.append(k, params[k]));
+      try {
+        const response = await fetch(url.toString(), { method: 'GET', mode: 'cors' });
+        return await response.json();
+      } catch(e) { console.error("API Error:", e); throw e; }
+    }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height:100%; margin:0; }
+    body{
+      overflow:hidden;
+      font-family: Arial, Helvetica, sans-serif;
+      background: radial-gradient(900px 500px at 40% 30%, rgba(45,140,255,.22), transparent 60%), radial-gradient(700px 400px at 70% 80%, rgba(80,220,255,.14), transparent 55%), linear-gradient(180deg, #0b1b2a 0%, #0f2a44 100%);
+      transition: background-color 0.4s ease; 
+    }
+    body.flash-success { background-color: rgba(40, 167, 69, 0.4); }
+
+    #viewport { position:fixed; inset:0; overflow:hidden; display:none; background: transparent; }
+    #app { position:absolute; transform-origin: top left; }
+
+    .gate{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,.55); z-index: 9999; padding: 14px; }
+    .gateCard{ width: min(420px, 92vw); background:#fff; border-radius: 14px; border: 1px solid rgba(0,0,0,.25); box-shadow: 0 10px 25px rgba(0,0,0,.22); padding: 16px; text-align:center; }
+    .gateTitle{ font-weight: 900; font-size: 18px; letter-spacing: .8px; }
+    .gateSub{ margin-top: 6px; font-size: 12px; color:#444; font-weight: 700; letter-spacing: .3px; }
+    .gateInput{ margin-top: 14px; width:100%; text-align:center; font-weight:900; font-size: 16px; padding: 12px 10px; border-radius: 12px; border: 2px solid #c9c9c9; outline:none; }
+    .gateBtn{ width:100%; margin-top: 10px; padding: 12px 14px; border-radius: 12px; border: 0; background:#222; color:#fff; font-weight: 900; letter-spacing: .8px; cursor:pointer; font-size: 16px; }
+    .gateErr{ margin-top: 10px; min-height: 18px; font-weight: 900; color:#c62828; font-size: 12px; letter-spacing: .4px; }
+
+    .frameGlowWrap{ position: relative; width: 1366px; height: 768px; }
+    .frame{ position: relative; z-index: 1; width: 1366px; height: 768px; border-radius: 14px; background: linear-gradient(#222,#111); border: 1px solid rgba(255,255,255,.18); box-shadow: 0 10px 25px rgba(0,0,0,.22); overflow: hidden; display:flex; flex-direction:column; }
+    .titlebar{ height: 44px; display:flex; align-items:center; justify-content:space-between; padding: 0 14px; color:#fff; font-weight:700; user-select:none; }
+    .content{ position: relative; padding: 12px; display:block; flex: 1; height: 100%; }
+    .panel{ background:#efefef; border-radius: 14px; border: 1px solid rgba(0,0,0,.25); padding: 12px; overflow:hidden; display:flex; flex-direction:column; gap: 12px; }
+    .card{ background:#fff; border:1px solid #bdbdbd; border-radius: 12px; padding: 12px; }
+    .center{ text-align:center; }
+    
+    .clockWrap{ border-radius: 12px; background: linear-gradient(#5b5b5b,#1f1f1f); border: 1px solid rgba(255,255,255,.2); padding: 14px 10px; }
+    .clock{ font-weight: 900; font-size: 56px; letter-spacing: 1px; color:#fff; margin: 0; }
+    .clockDate{ color:#f1f1f1; font-weight:700; letter-spacing:.6px; margin-top: 6px; font-size: 16px; }
+
+    /* AI CAMERA WRAPPER */
+    .camWrap { position:relative; width:100%; height:260px; border-radius:12px; background:#000; overflow:hidden; border:2px solid #334155; }
+    video { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; transform: scaleX(-1); }
+    canvas { position:absolute; top:0; left:0; width:100%; height:100%; transform: scaleX(-1); }
+    #aiStatus { position:absolute; bottom:10px; width:100%; text-align:center; color:#facc15; font-weight:900; z-index:10; font-size:14px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+    
+    .hlabel{ font-weight: 900; letter-spacing: .7px; font-size: 18px; margin: 10px 0 10px; }
+    .fieldValue{ text-align:center; padding: 12px 10px; border: 1px solid #bdbdbd; border-radius: 10px; background:#fff; min-height: 46px; font-weight:900; transition: all .18s ease; }
+    
+    .statusProcessing{ background: #fff7e6 !important; border-color: #f0b429 !important; color: #9a6700 !important; }
+    .statusInRecorded{ background: #edfdf3 !important; border-color: #34a853 !important; color: #18794e !important; }
+    .statusOutRecorded{ background: #fff1f2 !important; border-color: #e53935 !important; color: #b42318 !important; }
+    .statusNeutral{ background: #fff !important; border-color: #bdbdbd !important; color: #111 !important; }
+
+    .imgBoxExpanded{ flex: 1; height: 100%; min-height: 0; }
+    .leftInfoCard{ margin-top:12px; }
+    .imgBox{ width: 100%; border-radius: 14px; border: 1px solid #bdbdbd; background:#fff; overflow:hidden; display:flex; align-items:center; justify-content:center; font-weight:900; color:#666; }
+    .imgBox img{ width: 100%; height: 100%; object-fit: contain; object-position: center; display:block; }
+  </style>
+</head>
+<body>
+
+<div id="adminGate" class="gate">
+  <div class="gateCard">
+    <div class="gateTitle">AI SCANNER ACCESS</div>
+    <div class="gateSub">Enter admin password to open live scanner.</div>
+    <input id="adminPass" class="gateInput" type="password" placeholder="ADMIN PASSWORD" />
+    <button id="adminBtn" class="gateBtn" type="button">UNLOCK</button>
+    <div id="adminErr" class="gateErr"></div>
+  </div>
+</div>
+
+<div id="viewport">
+  <div id="app">
+    <div class="frameGlowWrap" id="frameWrap">
+      <div class="frame" id="frame">
+        <div class="titlebar">
+          <div id="topTitle">Mikana Desktop AI Scanner</div>
+          <div style="opacity:.85">© TEAMBA</div>
+        </div>
+        <div class="content">
+          <div style="display:grid; grid-template-columns: 0.95fr 1.35fr; gap: 12px; height:100%;">
+            
+            <div class="panel" style="overflow-y:auto;">
+              <div class="card center">
+                <div class="clockWrap">
+                  <div class="clock" id="clock">00:00:00</div>
+                  <div class="clockDate" id="clockDate">—</div>
+                </div>
+              </div>
+              
+              <div class="card center" style="padding:10px;">
+                 <div class="camWrap">
+                    <video id="video" autoplay muted playsinline></video>
+                    <canvas id="overlay"></canvas>
+                    <div id="aiStatus">WAITING FOR ADMIN UNLOCK...</div>
+                 </div>
+              </div>
+              
+              <div class="card center leftInfoCard">
+                <div class="hlabel">EMPLOYEE NAME</div>
+                <div class="fieldValue" id="empName">—</div>
+                <div class="hlabel" style="margin-top:14px">STATUS</div>
+                <div class="fieldValue statusNeutral" id="statusLine">READY</div>
+              </div>
+            </div>
+            
+            <div class="panel">
+              <div class="imgBox imgBoxExpanded" id="empImageBox">EMPLOYEE IMAGE</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function bustUrl(url){ const s = String(url || "").trim(); return s ? s + (s.includes("?") ? "&" : "?") + "v=" + Date.now() : ""; }
+
+  function triggerSuccessFeedback() {
+    document.body.classList.add('flash-success');
+    setTimeout(() => { document.body.classList.remove('flash-success'); }, 400); 
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator(); const gainNode = ctx.createGain();
+      osc.connect(gainNode); gainNode.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.setValueAtTime(1046.50, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1318.51, ctx.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0.5, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
+    } catch (e) {}
+  }
+
+  let adminToken = "";
+  const adminGate = document.getElementById('adminGate');
+  const adminPass = document.getElementById('adminPass');
+  const adminBtn  = document.getElementById('adminBtn');
+  const adminErr  = document.getElementById('adminErr');
+  const viewport  = document.getElementById('viewport');
+
+  function setAdminError(msg){ adminErr.textContent = msg || ""; }
+
+  function unlockApp(){
+    adminGate.style.display = "none";
+    viewport.style.display = "block";
+    scaleToFit();
+    runStartupEmployeeUpdate();
+  }
+
+  async function tryUnlock(){
+    const p = String(adminPass.value || "");
+    if (!p){ setAdminError("ENTER PASSWORD"); adminPass.focus(); return; }
+    
+    if(SCRIPT_URL === "YOUR_GOOGLE_WEB_APP_URL_HERE") {
+        setAdminError("YOU FORGOT TO PASTE YOUR SCRIPT URL IN THE HTML CODE!"); return;
+    }
+
+    setAdminError("CHECKING..."); adminBtn.disabled = true;
+
+    try {
+      const res = await fetchAPI({ page: 'api_verify_admin', pass: p });
+      adminBtn.disabled = false;
+      if (res && res.ok && res.token){
+        adminToken = res.token; setAdminError(""); unlockApp();
+      } else {
+        adminPass.value = ""; setAdminError((res && res.msg) ? res.msg : "WRONG PASSWORD"); adminPass.focus();
+      }
+    } catch(err) {
+      adminBtn.disabled = false; setAdminError("SERVER ERROR"); adminPass.focus();
+    }
+  }
+
+  adminBtn.addEventListener('click', tryUnlock);
+  adminPass.addEventListener('keydown', (e)=>{ if (e.key === "Enter"){ e.preventDefault(); tryUnlock(); } });
+
+  const OUTER_PAD = 12;
+  function getViewportSize(){ return window.visualViewport ? { w: window.visualViewport.width, h: window.visualViewport.height } : { w: window.innerWidth, h: window.innerHeight }; }
+  function scaleToFit(){
+    const frameWrap = document.getElementById('frameWrap'); const app = document.getElementById('app');
+    const baseW = 1366, baseH = 768; const { w: vw, h: vh } = getViewportSize();
+    const s = Math.min(Math.max(100, vw - OUTER_PAD*2) / baseW, Math.max(100, vh - OUTER_PAD*2) / baseH);
+    app.style.transform = `scale(${s})`;
+    app.style.left = (OUTER_PAD + Math.max(0, ((vw - OUTER_PAD*2) - (baseW * s)) / 2)) + "px";
+    app.style.top  = (OUTER_PAD + Math.max(0, ((vh - OUTER_PAD*2) - (baseH * s)) / 2)) + "px";
+  }
+  window.addEventListener('resize', scaleToFit);
+
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function tick(){
+    const d = new Date();
+    document.getElementById('clock').textContent = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+    document.getElementById('clockDate').textContent = `${["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}, ${["SUN","MON","TUE","WED","THU","FRI","SAT"][d.getDay()]}`;
+  }
+  setInterval(tick, 1000); tick();
+
+  const empNameEl = document.getElementById('empName');
+  const statusLineEl = document.getElementById('statusLine');
+  const empImageBox = document.getElementById('empImageBox');
+
+  function setStatusLine(s){
+    const txt = String(s || "READY").trim().toUpperCase();
+    statusLineEl.textContent = txt;
+    statusLineEl.classList.remove("statusProcessing", "statusInRecorded", "statusOutRecorded", "statusNeutral");
+
+    if (txt.indexOf("PROCESSING") !== -1) statusLineEl.classList.add("statusProcessing");
+    else if (txt.indexOf("IN RECORDED") !== -1 || txt.indexOf("OUT RECORDED") !== -1) {
+      if (txt.indexOf("IN RECORDED") !== -1) statusLineEl.classList.add("statusInRecorded");
+      if (txt.indexOf("OUT RECORDED") !== -1) statusLineEl.classList.add("statusOutRecorded");
+      triggerSuccessFeedback();
+    }
+    else statusLineEl.classList.add("statusNeutral");
+  }
+
+  async function runStartupEmployeeUpdate(){
+    setStatusLine("UPDATING RECORDS...");
+    try {
+      await fetchAPI({ page: 'api_startup' });
+      setStatusLine("READY");
+      startAIEngine(); // 🔥 START THE LIVE AI
+    } catch(err) {
+      setStatusLine("ERROR UPDATING");
+    }
+  }
+
+  function setEmployeeImage(src){
+    const s = bustUrl(String(src || "").trim());
+    if (!s){ empImageBox.innerHTML = "NO IMAGE"; return; }
+    empImageBox.innerHTML = "";
+    const img = document.createElement("img");
+    img.onerror = () => { empImageBox.innerHTML = "IMAGE NOT AVAILABLE"; };
+    img.src = s; empImageBox.appendChild(img);
+  }
+
+  // --- 🤖 LIVE AI ENGINE ---
+  const video = document.getElementById('video');
+  const overlay = document.getElementById('overlay');
+  const aiStatus = document.getElementById('aiStatus');
+  let faceMatcher = null;
+  let isScanning = false;
+  let submitBusy = false;
+  let scanCooldowns = {}; 
+
+  async function startAIEngine() {
+      aiStatus.textContent = "LOADING AI MODELS...";
+      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+      await Promise.all([
+        faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+      ]);
+      
+      aiStatus.textContent = "DOWNLOADING FACE DATABASE...";
+      try {
+          const res = await fetchAPI({ page: 'api_get_faces' });
+          if(!res.ok || !res.faces || res.faces.length === 0) {
+             aiStatus.textContent = "NO FACES REGISTERED IN DATABASE"; return;
+          }
+
+          const labeledDescriptors = res.faces.map(f => {
+             const float32Array = new Float32Array(JSON.parse(f.descriptor));
+             return new faceapi.LabeledFaceDescriptors(f.code, [float32Array]); 
+          });
+
+          faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
+          
+          aiStatus.textContent = "STARTING CAMERA...";
+          
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          video.srcObject = stream;
+          aiStatus.textContent = "LIVE SCANNER READY";
+          aiStatus.style.color = "#10b981";
+          isScanning = true;
+          
+          overlay.width = video.videoWidth || 640;
+          overlay.height = video.videoHeight || 480;
+          video.onloadedmetadata = () => {
+              overlay.width = video.videoWidth;
+              overlay.height = video.videoHeight;
+          };
+
+          scanLoop();
+      } catch(e) { aiStatus.textContent = "CAMERA BLOCKED. ALLOW CAMERA IN SETTINGS."; aiStatus.style.color = "#ef4444"; }
+  }
+
+  async function scanLoop() {
+      if(!isScanning) return;
+
+      const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
+      const ctx = overlay.getContext('2d');
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+      
+      if (detections.length > 0) {
+          const resizedDetections = faceapi.resizeResults(detections, { width: video.videoWidth, height: video.videoHeight });
+          faceapi.draw.drawDetections(overlay, resizedDetections);
+
+          resizedDetections.forEach(d => {
+              const bestMatch = faceMatcher.findBestMatch(d.descriptor);
+              
+              if (bestMatch.label !== "unknown" && bestMatch.distance < 0.5) {
+                 handleRecognizedFace(bestMatch.label);
+              }
+          });
+      }
+      requestAnimationFrame(scanLoop);
+  }
+
+  function handleRecognizedFace(empCode) {
+      if (submitBusy) return; 
+      const now = Date.now();
+      if (scanCooldowns[empCode] && (now - scanCooldowns[empCode] < 7000)) return; 
+      scanCooldowns[empCode] = now;
+      submitScan(empCode);
+  }
+
+  async function submitScan(empCode){
+    submitBusy = true;
+    setStatusLine("PROCESSING...");
+
+    try {
+      const res = await fetchAPI({ page: 'api_scan', code: empCode, adminToken: adminToken });
+      submitBusy = false;
+      
+      if(!res || (!res.ok && res.action !== "ABSENT" && res.action !== "IN" && res.action !== "OUT" && res.action !== "DONE")) {
+          throw new Error(res.statusLine || "FAILED");
+      }
+
+      empNameEl.textContent = (res && res.empName) ? res.empName : "—";
+      setEmployeeImage(res && res.imageUrl ? res.imageUrl : "");
+      setStatusLine(res && res.statusLine ? res.statusLine : "READY");
+      
+      setTimeout(() => {
+         empNameEl.textContent = "—";
+         setEmployeeImage("");
+         setStatusLine("READY");
+      }, 3000);
+    } catch(err) {
+      submitBusy = false;
+      setEmployeeImage("");
+      statusLineEl.textContent = "ERROR - " + (err.message || "SERVER");
+      statusLineEl.className = "fieldValue statusOutRecorded";
+      setTimeout(() => { setStatusLine("READY"); }, 3000);
+    }
+  }
+
+  setStatusLine("LOCKED");
+</script>
+</body>
+</html>
