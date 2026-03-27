@@ -178,7 +178,7 @@
   let adminToken = "";
   let currentMode = "SCAN"; 
   let globalFacesMap = {}; 
-  let pendingEmpCode = ""; // Stores the matched code while waiting for In/Out selection
+  let pendingEmpCode = ""; 
   
   const adminGate = document.getElementById('adminGate');
   const adminPass = document.getElementById('adminPass');
@@ -227,7 +227,7 @@
       if(currentMode === "SCAN") {
           currentMode = "REGISTER";
           btn.textContent = "⬅️ BACK TO SCANNER";
-          capBtn.style.display = "none"; // Hide capture button in reg mode
+          capBtn.style.display = "none"; 
           document.getElementById('infoCard').style.display = "none";
           document.getElementById('regCard').style.display = "flex";
       } else {
@@ -260,12 +260,12 @@
     setStatusLine("UPDATING...", "proc");
     try {
       await fetchAPI({ page: 'api_startup' });
-      setStatusLine("READY");
+      setStatusLine("READY", "");
       startAIEngine();
     } catch(err) { setStatusLine("ERROR", "out"); }
   }
 
-  // --- 🤖 AI ENGINE (MANUAL CAPTURE MODE) ---
+  // --- 🤖 AI ENGINE INITIALIZATION ---
   const video = document.getElementById('video');
   const overlay = document.getElementById('overlay');
   const aiStatus = document.getElementById('aiStatus');
@@ -293,7 +293,8 @@
                  return new faceapi.LabeledFaceDescriptors(f.code, [float32Array]); 
               });
               if(labeledDescriptors.length > 0) {
-                 faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6); 
+                 // 🔒 MAXIMUM SECURITY: Set to 0.45 Strictness
+                 faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45); 
               }
           }
           
@@ -303,65 +304,69 @@
           video.onloadedmetadata = () => { 
              overlay.width = video.clientWidth; 
              overlay.height = video.clientHeight; 
-             aiStatus.style.display = "none"; // Hide status when ready
+             aiStatus.style.display = "none"; 
           };
-          
-          // WE NO LONGER CALL scanLoop() HERE. We wait for the button click.
           
       } catch(e) { 
           aiStatus.textContent = "CAMERA ERROR"; 
       }
   }
 
-  // --- THE NEW MANUAL CAPTURE LOGIC ---
+  // --- 📸 SECURE MANUAL CAPTURE LOGIC ---
   async function captureAndAnalyze() {
       if(!faceMatcher) {
-          alert("Face Database not loaded yet. Please wait."); return;
+          setStatusLine("DATABASE EMPTY", "out");
+          triggerErrorFeedback();
+          return;
       }
       
       const btn = document.getElementById('captureBtn');
       btn.disabled = true;
       btn.textContent = "⏳ ANALYZING PHOTO...";
       
-      // Clear any old boxes
+      empNameEl.textContent = "SCANNING FACE...";
+      setStatusLine("PROCESSING", "proc");
+      setAvatar("");
+      
       const ctx = overlay.getContext('2d');
       ctx.clearRect(0, 0, overlay.width, overlay.height);
 
       try {
-          // Take a snapshot and run detection
-          const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 });
+          const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
           const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
           
           if (!detection) {
-              throw new Error("No face found! Please look at the camera.");
+              throw new Error("NO FACE DETECTED");
           }
 
-          // Draw the box on the frozen frame
           const displaySize = { width: video.clientWidth, height: video.clientHeight };
           const resizedDetection = faceapi.resizeResults(detection, displaySize);
           const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
           
-          if (bestMatch.label !== "unknown" && bestMatch.distance < 0.6) {
-              // Draw Green Box
+          // 🔒 STRICT CHECK: Face must be closer than 0.45 distance to pass
+          if (bestMatch.label !== "unknown" && bestMatch.distance < 0.45) {
               const drawBox = new faceapi.draw.DrawBox(resizedDetection.detection.box, { label: bestMatch.label, boxColor: '#10b981' });
               drawBox.draw(overlay);
               
-              // TRIGGER THE TIME IN/OUT POPUP
               pendingEmpCode = bestMatch.label;
               const realName = globalFacesMap[pendingEmpCode] || pendingEmpCode;
               document.getElementById('confirmName').textContent = `${realName} (${pendingEmpCode})`;
               document.getElementById('confirmModal').style.display = 'flex';
               
           } else {
-              // Draw Red Box
               const drawBox = new faceapi.draw.DrawBox(resizedDetection.detection.box, { label: "Unrecognized", boxColor: '#ef4444' });
               drawBox.draw(overlay);
-              throw new Error("Face not recognized in database.");
+              throw new Error("UNRECOGNIZED FACE");
           }
 
       } catch (err) {
-          alert(err.message);
-          resetScanner(); // Reset if failed
+          empNameEl.textContent = err.message;
+          setStatusLine("ACCESS DENIED", "out");
+          triggerErrorFeedback(); 
+          
+          setTimeout(() => {
+              resetScanner();
+          }, 3000);
       }
   }
 
@@ -373,12 +378,15 @@
       btn.disabled = false;
       btn.textContent = "📸 CAPTURE & RECOGNIZE";
       
+      empNameEl.textContent = "WAITING FOR SCAN";
+      setStatusLine("READY", "");
+      setAvatar("");
+      
       const ctx = overlay.getContext('2d');
       ctx.clearRect(0, 0, overlay.width, overlay.height);
   }
 
   // --- ATTENDANCE SUBMIT ---
-  // Note: We pass the explicit action (IN or OUT) to the backend API now.
   async function submitScan(actionType){
     document.getElementById('confirmModal').style.display = 'none';
     
@@ -389,7 +397,6 @@
     btn.textContent = "⏳ SAVING RECORD...";
 
     try {
-      // Pass the explicit action to the backend
       const res = await fetchAPI({ page: 'api_scan', code: pendingEmpCode, adminToken: adminToken, action: actionType });
       
       if(!res || !res.ok) {
@@ -406,9 +413,6 @@
       setStatusLine(res.statusLine || `${actionType} RECORDED`, colorType);
       
       setTimeout(() => {
-         empNameEl.textContent = "WAITING FOR SCAN";
-         setAvatar("");
-         setStatusLine("READY", "");
          resetScanner();
       }, 3500);
 
@@ -416,8 +420,6 @@
       empNameEl.textContent = "SCAN ERROR";
       setStatusLine(err.message || "SERVER TIMEOUT", "out");
       setTimeout(() => { 
-         empNameEl.textContent = "WAITING FOR SCAN";
-         setStatusLine("READY", ""); 
          resetScanner();
       }, 3500);
     }
