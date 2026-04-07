@@ -12,17 +12,15 @@
     // =========================================================================
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0TytppAu3jEDM5c_tu8tyO_mMn5Puco8sPEHYmrky3U9qzh_E8BUuI9UTeYOv_ND-OA/exec"; 
     
-    // Legacy GET requests (for simple fetches)
     async function fetchAPI(params) {
       const url = new URL(SCRIPT_URL);
       Object.keys(params).forEach(k => url.searchParams.append(k, params[k]));
       try {
         const response = await fetch(url.toString(), { method: 'GET', mode: 'cors' });
         return await response.json();
-      } catch(e) { console.error("API Error:", e); throw e; }
+      } catch(e) { throw e; }
     }
 
-    // NEW POST requests (for massive image files)
     async function postAPI(payload) {
       try {
         const response = await fetch(SCRIPT_URL, {
@@ -30,7 +28,7 @@
           body: JSON.stringify(payload)
         });
         return await response.json();
-      } catch(e) { console.error("POST Error:", e); throw e; }
+      } catch(e) { throw e; }
     }
   </script>
 
@@ -42,11 +40,21 @@
     body.flash-success .cam-container { box-shadow: 0 0 40px rgba(16, 185, 129, 0.6); border-color: var(--success); }
     body.flash-error .cam-container { box-shadow: 0 0 40px rgba(239, 68, 68, 0.6); border-color: var(--error); }
 
+    /* TOAST NOTIFICATIONS */
+    #toastBox { position:fixed; top:20px; right:20px; z-index:99999; display:flex; flex-direction:column; gap:10px; pointer-events:none; }
+    .toast { min-width:250px; background:var(--panel); color:#fff; padding:15px 20px; border-radius:12px; font-weight:900; box-shadow:0 10px 40px rgba(0,0,0,0.5); display:flex; align-items:center; gap:12px; transform:translateX(120%); transition:transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid var(--border); }
+    .toast.show { transform:translateX(0); }
+    .toast.success { border-left: 6px solid var(--success); }
+    .toast.error { border-left: 6px solid var(--error); }
+    .toast.info { border-left: 6px solid var(--accent); }
+
     .gate { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(8px); padding: 20px; }
     .gateCard { background: var(--panel); border: 1px solid var(--border); padding: 30px; border-radius: 20px; text-align: center; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
     .gateTitle { font-size: 20px; font-weight: 900; color: var(--accent); margin-bottom: 5px; }
-    .gateInput { width: 100%; background: var(--bg); border: 2px solid var(--border); color: white; padding: 15px; border-radius: 12px; margin: 15px 0; font-size: 16px; text-align: center; font-weight: bold; outline: none; }
-    .gateBtn { width: 100%; background: var(--accent); color: #000; font-weight: 900; font-size: 16px; padding: 15px; border: none; border-radius: 12px; cursor: pointer; }
+    .gateInput { width: 100%; background: var(--bg); border: 2px solid var(--border); color: white; padding: 15px; border-radius: 12px; margin: 15px 0; font-size: 16px; text-align: center; font-weight: bold; outline: none; transition: 0.2s; }
+    .gateInput:focus { border-color: var(--accent); }
+    .gateBtn { width: 100%; background: var(--accent); color: #000; font-weight: 900; font-size: 16px; padding: 15px; border: none; border-radius: 12px; cursor: pointer; transition:0.2s; }
+    .gateBtn:active { transform: scale(0.95); }
     .gateErr { color: var(--error); font-size: 14px; font-weight: bold; margin-top: 10px; min-height: 20px; }
 
     #viewport { display: none; flex-direction: column; height: 100vh; padding: 15px; gap: 15px; max-width: 1200px; margin: 0 auto; }
@@ -104,7 +112,7 @@
     /* REGISTRATION FORM CARD */
     .reg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
     .reg-input { background: var(--bg); border: 1px solid var(--border); color: white; padding: 10px; border-radius: 8px; font-size: 14px; outline: none; }
-    .reg-input:disabled { opacity: 0.6; cursor: not-allowed; border-color: var(--accent); color: var(--accent); font-weight: bold;}
+    .reg-input:disabled { opacity: 0.8; cursor: not-allowed; border-color: var(--success); color: var(--success); font-weight: bold;}
     .reg-input.full { grid-column: span 2; }
     .reg-submit-btn { grid-column: span 2; background: var(--accent); color: #000; padding: 12px; border-radius: 8px; border: none; font-weight: 900; cursor: pointer; }
 
@@ -114,6 +122,8 @@
   </style>
 </head>
 <body>
+
+<div id="toastBox"></div>
 
 <div id="adminGate" class="gate">
   <div class="gateCard">
@@ -203,13 +213,34 @@
             <select class="reg-input" id="regStatus"><option value="ACTIVE">ACTIVE</option></select>
             
             <input type="text" class="reg-input full" id="regAddress" placeholder="Home Address">
-            <button class="reg-submit-btn" onclick="submitRegistration()">📸 MAP FACE & SAVE HR RECORD</button>
+            <button class="reg-submit-btn" id="regSubmitBtn" onclick="submitRegistration()">📸 MAP FACE & SAVE HR RECORD</button>
         </div>
     </div>
   </div>
 </div>
 
 <script>
+  // --- TOAST NOTIFICATION SYSTEM ---
+  function showToast(msg, type='info') {
+    const box = document.getElementById('toastBox');
+    const toast = document.createElement('div');
+    
+    // Add icon based on type
+    let icon = "ℹ️";
+    if(type === 'success') icon = "✅";
+    if(type === 'error') icon = "❌";
+    
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `<span>${icon}</span> <span>${msg}</span>`;
+    box.appendChild(toast);
+    
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 300);
+    }, 3500);
+  }
+
   function triggerSuccessFeedback() { document.body.classList.add('flash-success'); setTimeout(() => { document.body.classList.remove('flash-success'); }, 400); }
   function triggerErrorFeedback() { document.body.classList.add('flash-error'); setTimeout(() => { document.body.classList.remove('flash-error'); }, 400); }
 
@@ -224,39 +255,50 @@
   const adminBtn  = document.getElementById('adminBtn');
   const viewport  = document.getElementById('viewport');
 
-  // Utility: Capture current frame as Base64 Image
+  // 📸 Take Base64 Photo from Video
   function capturePhotoBase64() {
       const vid = document.getElementById('video');
       const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = vid.videoWidth;
-      tempCanvas.height = vid.videoHeight;
+      tempCanvas.width = vid.videoWidth; tempCanvas.height = vid.videoHeight;
       const ctx = tempCanvas.getContext('2d');
-      // Flip the context so the saved image isn't mirrored
-      ctx.translate(tempCanvas.width, 0);
-      ctx.scale(-1, 1);
+      ctx.translate(tempCanvas.width, 0); ctx.scale(-1, 1);
       ctx.drawImage(vid, 0, 0, tempCanvas.width, tempCanvas.height);
-      return tempCanvas.toDataURL('image/jpeg', 0.8); // 80% quality JPEG
+      return tempCanvas.toDataURL('image/jpeg', 0.8);
   }
 
   function unlockApp(){
     adminGate.style.display = "none";
     viewport.style.display = "flex";
+    showToast('Admin Unlocked Successfully!', 'success');
     runStartupEmployeeUpdate();
   }
 
   async function tryUnlock(){
     const p = String(adminPass.value || "");
-    if (!p) return alert("ENTER PASSWORD");
+    if (!p) {
+        showToast('Please enter a password', 'error');
+        return;
+    }
     adminBtn.disabled = true;
+    adminBtn.textContent = "CHECKING...";
+    
     try {
       const res = await fetchAPI({ page: 'api_verify_admin', pass: p });
       adminBtn.disabled = false;
+      adminBtn.textContent = "UNLOCK";
+      
       if (res && res.ok && res.token){
-        adminToken = res.token; unlockApp();
+        adminToken = res.token; 
+        unlockApp();
       } else {
-        adminPass.value = ""; alert("WRONG PASSWORD");
+        adminPass.value = ""; 
+        showToast('Incorrect Password', 'error');
       }
-    } catch(err) { adminBtn.disabled = false; alert("SERVER ERROR"); }
+    } catch(err) { 
+        adminBtn.disabled = false; 
+        adminBtn.textContent = "UNLOCK";
+        showToast('Server Communication Error', 'error'); 
+    }
   }
 
   adminBtn.addEventListener('click', tryUnlock);
@@ -290,7 +332,7 @@
           document.getElementById('btnModeReg').classList.add('active');
           document.getElementById('panelReg').classList.add('active');
           capBtn.style.display = "none";
-          fetchNextEmployeeCode(); // Ask server for next code
+          fetchNextEmployeeCode(); 
       }
   }
 
@@ -357,7 +399,10 @@
 
   // --- MODE 1: FACE SCAN (MANUAL CAPTURE) ---
   async function captureAndAnalyze() {
-      if(!faceMatcher) return alert("Database empty or loading.");
+      if(!faceMatcher) {
+          showToast('Database empty or loading', 'error');
+          return;
+      }
       const ctx = overlay.getContext('2d'); ctx.clearRect(0, 0, overlay.width, overlay.height);
 
       try {
@@ -388,6 +433,7 @@
               throw new Error("UNRECOGNIZED FACE");
           }
       } catch (err) {
+          showToast(err.message, 'error');
           empNameEl.textContent = err.message; setStatusLine("ACCESS DENIED", "out"); triggerErrorFeedback(); 
           setTimeout(resetScanner, 3000);
       }
@@ -398,29 +444,34 @@
       pendingEmpCode = "";
       empNameEl.textContent = "WAITING FOR SCAN"; setStatusLine("READY", ""); setAvatar("");
       const ctx = overlay.getContext('2d'); ctx.clearRect(0, 0, overlay.width, overlay.height);
+      const capBtn = document.getElementById('captureBtn');
+      capBtn.textContent = "📸 CAPTURE & RECOGNIZE";
+      capBtn.disabled = false;
   }
 
-  // CORE SUBMIT (Used by Face Scan)
+  // --- CORE SUBMIT (POST REQUEST) ---
   async function submitScan(actionType){
     document.getElementById('confirmModal').style.display = 'none';
     setStatusLine("SAVING " + actionType + "...", "proc");
     
-    // 📸 Take the picture!
+    document.getElementById('captureBtn').textContent = "⏳ UPLOADING PHOTO...";
+    document.getElementById('captureBtn').disabled = true;
+
     const photoB64 = capturePhotoBase64();
 
     try {
-      // ⚠️ WE WILL CHANGE THIS TO postAPI ONCE THE BACKEND IS READY
-      console.log("Preparing to send POST request with Image Data...");
-      
-      const res = await fetchAPI({ page: 'api_scan', code: pendingEmpCode, adminToken: adminToken, action: actionType });
-      if(!res || !res.ok) throw new Error(res.statusLine || "FAILED");
+      const res = await postAPI({ page: 'api_scan', code: pendingEmpCode, adminToken: adminToken, action: actionType, photoB64: photoB64 });
+      if(!res || !res.ok) throw new Error(res.error || res.statusLine || "FAILED");
 
       localAttendanceCache[pendingEmpCode] = res.action || actionType;
-      setStatusLine(`${actionType} RECORDED`, actionType === "IN" ? "in" : "out");
+      setStatusLine(`${actionType} SAVED`, actionType === "IN" ? "in" : "out");
+      showToast(`${globalFacesMap[pendingEmpCode] || pendingEmpCode} successfully timed ${actionType.toLowerCase()}!`, 'success');
+      
       setTimeout(resetScanner, 3500);
 
     } catch(err) {
-      setStatusLine(err.message || "SERVER TIMEOUT", "out");
+      setStatusLine(err.message || "SERVER ERROR", "out");
+      showToast('Failed to save attendance', 'error');
       setTimeout(resetScanner, 3500);
     }
   }
@@ -428,41 +479,89 @@
   // --- MODE 2: QR / MANUAL SUBMIT ---
   async function submitQR(actionType) {
       const code = document.getElementById('qrInput').value.trim().toUpperCase();
-      if(!code) return alert("Please type or scan a code first.");
+      if(!code) {
+          showToast('Please type or scan a code first.', 'error');
+          return;
+      }
       
-      // 📸 Snap the photo automatically on click!
+      document.getElementById('qrInput').value = "UPLOADING PHOTO...";
+      pendingEmpCode = code;
       const photoB64 = capturePhotoBase64();
-      alert(`Backend update required to save ${code} for ${actionType} with Photo.\nImage captured successfully!`);
-      document.getElementById('qrInput').value = "";
+
+      try {
+        const res = await postAPI({ page: 'api_scan', code: pendingEmpCode, adminToken: adminToken, action: actionType, photoB64: photoB64 });
+        if(!res || !res.ok) throw new Error(res.error || res.statusLine || "FAILED");
+  
+        localAttendanceCache[pendingEmpCode] = res.action || actionType;
+        showToast(`${code} successfully timed ${actionType.toLowerCase()}!`, 'success');
+        document.getElementById('qrInput').value = "";
+      } catch(err) {
+        showToast(err.message || "Upload Failed", 'error');
+        document.getElementById('qrInput').value = "";
+      }
   }
 
   // --- MODE 3: HR REGISTRATION ---
   async function fetchNextEmployeeCode() {
-      // ⚠️ Mocked until backend is ready
-      document.getElementById('regCode').value = "MIK-236 (Mock)";
+      try {
+         const res = await fetchAPI({ page: 'api_get_next_code' });
+         if (res.ok) document.getElementById('regCode').value = res.nextCode;
+      } catch(e) {
+         document.getElementById('regCode').value = "ERROR FETCHING CODE";
+      }
   }
 
   async function submitRegistration() {
-      const code = document.getElementById('regCode').value.replace(" (Mock)", "");
+      const code = document.getElementById('regCode').value;
       const name = document.getElementById('regName').value;
       const dept = document.getElementById('regDept').value;
+      const shift = document.getElementById('regShift').value;
+      const mobile = document.getElementById('regMobile').value;
+      const status = document.getElementById('regStatus').value;
+      const address = document.getElementById('regAddress').value;
       
-      if(!name || !dept) return alert("Please fill out the name and department.");
+      if(!name || !dept || !shift) {
+          showToast("Name, Dept, and Shift are required.", "error");
+          return;
+      }
 
       aiStatus.style.display = "block"; aiStatus.textContent = "MAPPING FACE... HOLD STILL";
+      const btn = document.getElementById('regSubmitBtn');
+      btn.disabled = true;
       
       const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-      if(!detection) { aiStatus.style.display = "none"; return alert("ERROR: NO FACE DETECTED."); }
+      if(!detection) { 
+          aiStatus.style.display = "none"; btn.disabled = false; 
+          showToast("ERROR: NO FACE DETECTED. PLEASE LOOK AT CAMERA.", "error");
+          return;
+      }
       
-      // 📸 Snap the profile photo!
+      aiStatus.textContent = "UPLOADING HR PROFILE...";
       const photoB64 = capturePhotoBase64();
       const descStr = JSON.stringify(Array.from(detection.descriptor));
       
-      aiStatus.textContent = "PREPARING UPLOAD...";
-      
-      // ⚠️ To be replaced with postAPI
-      alert(`Backend update required to process Full HR Profile + Face Map + Photo Upload for ${name}.`);
-      aiStatus.style.display = "none";
+      try {
+          const res = await postAPI({ 
+              page: 'api_register_hr', adminToken: adminToken, 
+              code: code, name: name, dept: dept, shift: shift, 
+              mobile: mobile, status: status, address: address, 
+              faceDescriptor: descStr, profilePhotoB64: photoB64 
+          });
+
+          if(res.ok) {
+              showToast(`Success! ${name} is now registered.`, 'success');
+              document.getElementById('regName').value = ""; document.getElementById('regMobile').value = ""; document.getElementById('regAddress').value = "";
+              aiStatus.style.display = "none"; btn.disabled = false;
+              runStartupEmployeeUpdate(); 
+              switchMode('SCAN'); 
+          } else {
+              aiStatus.style.display = "none"; btn.disabled = false;
+              showToast("Registration Failed: " + (res.error || "Unknown Error"), 'error');
+          }
+      } catch(e) { 
+          aiStatus.style.display = "none"; btn.disabled = false;
+          showToast("Network Error during upload!", 'error');
+      }
   }
 </script>
 </body>
