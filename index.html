@@ -48,7 +48,7 @@
     .toast.error { border-left: 6px solid var(--error); }
     .toast.info { border-left: 6px solid var(--accent); }
 
-    /* ADMIN GATE (HIDDEN BY DEFAULT NOW) */
+    /* ADMIN GATE (HIDDEN BY DEFAULT) */
     .gate { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); display: none; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(8px); padding: 20px; }
     .gateCard { background: var(--panel); border: 1px solid var(--border); padding: 30px; border-radius: 20px; text-align: center; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
     .gateTitle { font-size: 20px; font-weight: 900; color: var(--accent); margin-bottom: 5px; }
@@ -59,7 +59,6 @@
     .gateCancel { width: 100%; background: transparent; color: var(--sub); font-weight: bold; font-size: 14px; padding: 15px; border: 2px solid var(--border); border-radius: 12px; cursor: pointer; margin-top: 10px; transition:0.2s; }
     .gateCancel:hover { background: var(--bg); color: #fff; }
 
-    /* VIEWPORT (VISIBLE BY DEFAULT NOW) */
     #viewport { display: flex; flex-direction: column; height: 100vh; padding: 15px; gap: 15px; max-width: 1200px; margin: 0 auto; }
     
     .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: var(--panel); border-radius: 16px; border: 1px solid var(--border); flex-shrink: 0; }
@@ -131,9 +130,9 @@
 <div id="adminGate" class="gate">
   <div class="gateCard">
     <div class="gateTitle">🔒 ADMIN ACCESS REQUIRED</div>
-    <div style="color:var(--sub); font-size:14px; margin-bottom: 15px;">Please verify your identity to access this mode.</div>
+    <div style="color:var(--sub); font-size:14px; margin-bottom: 15px;">Please verify your identity to access HR Registration.</div>
     <input id="adminPass" class="gateInput" type="password" placeholder="Admin Password" />
-    <button id="adminBtn" class="gateBtn" type="button">UNLOCK MODE</button>
+    <button id="adminBtn" class="gateBtn" type="button">UNLOCK HR MODE</button>
     <button class="gateCancel" type="button" onclick="cancelAdminUnlock()">CANCEL</button>
   </div>
 </div>
@@ -224,18 +223,15 @@
 </div>
 
 <script>
-  // --- TOAST NOTIFICATION SYSTEM ---
   function showToast(msg, type='info') {
     const box = document.getElementById('toastBox');
     const toast = document.createElement('div');
     let icon = "ℹ️";
     if(type === 'success') icon = "✅";
     if(type === 'error') icon = "❌";
-    
     toast.className = `toast ${type}`;
     toast.innerHTML = `<span>${icon}</span> <span>${msg}</span>`;
     box.appendChild(toast);
-    
     setTimeout(() => toast.classList.add('show'), 10);
     setTimeout(() => {
       toast.classList.remove('show');
@@ -248,7 +244,7 @@
 
   let adminToken = "";
   let currentMode = "SCAN"; 
-  let pendingModeRequest = ""; // Remembers what button they clicked before the password pop-up
+  let pendingModeRequest = ""; 
   let globalFacesMap = {}; 
   let pendingEmpCode = ""; 
   let localAttendanceCache = {}; 
@@ -256,8 +252,8 @@
   const adminGate = document.getElementById('adminGate');
   const adminPass = document.getElementById('adminPass');
   const adminBtn  = document.getElementById('adminBtn');
+  const viewport  = document.getElementById('viewport');
 
-  // 📸 Take Base64 Photo from Video
   function capturePhotoBase64() {
       const vid = document.getElementById('video');
       const tempCanvas = document.createElement('canvas');
@@ -268,12 +264,10 @@
       return tempCanvas.toDataURL('image/jpeg', 0.8);
   }
 
-  // --- AUTOMATIC STARTUP ---
   window.addEventListener("DOMContentLoaded", () => {
       runStartupEmployeeUpdate();
   });
 
-  // --- ADMIN SECURITY GATE LOGIC ---
   function cancelAdminUnlock() {
       adminGate.style.display = "none";
       adminPass.value = "";
@@ -290,7 +284,7 @@
     try {
       const res = await fetchAPI({ page: 'api_verify_admin', pass: p });
       adminBtn.disabled = false;
-      adminBtn.textContent = "UNLOCK MODE";
+      adminBtn.textContent = "UNLOCK HR MODE";
       
       if (res && res.ok && res.token){
         adminToken = res.token; 
@@ -298,9 +292,8 @@
         adminPass.value = "";
         showToast('Access Granted!', 'success');
         
-        // Auto-switch to the mode they requested
         if(pendingModeRequest) {
-            switchMode(pendingModeRequest, true); // True = skip auth check
+            switchMode(pendingModeRequest, true); 
             pendingModeRequest = "";
         }
       } else {
@@ -309,7 +302,7 @@
       }
     } catch(err) { 
         adminBtn.disabled = false; 
-        adminBtn.textContent = "UNLOCK MODE";
+        adminBtn.textContent = "UNLOCK HR MODE";
         showToast('Server Communication Error', 'error'); 
     }
   }
@@ -324,21 +317,21 @@
   }
   setInterval(tick, 1000); tick();
 
-  // --- MODE SWITCHER ---
+  // --- 🔥 UPDATED MODE SWITCHER ---
   function switchMode(mode, skipAuth = false) {
       
-      // SECURITY CHECK: If they click QR or REG, and they don't have a token, pop the gate!
-      if ((mode === 'QR' || mode === 'REGISTER') && !adminToken && !skipAuth) {
+      // SECURITY CHECK: ONLY require password for REGISTER mode
+      if (mode === 'REGISTER' && !adminToken && !skipAuth) {
           pendingModeRequest = mode;
           adminGate.style.display = "flex";
           document.getElementById('adminPass').focus();
           return;
       }
 
-      // AUTO-LOCK: If they switch back to SCAN, destroy the admin token for security.
-      if (mode === 'SCAN' && adminToken) {
+      // AUTO-LOCK: If they switch OUT of REGISTER mode, destroy the token immediately to secure the tablet.
+      if (mode !== 'REGISTER' && adminToken) {
           adminToken = ""; 
-          showToast("Device Secured. Admin Mode Locked.", "info");
+          showToast("Device Secured. HR Mode Locked.", "info");
       }
 
       currentMode = mode;
@@ -381,12 +374,6 @@
     avatarBox.innerHTML = `<img src="${src}?v=${Date.now()}">`;
   }
 
-  // --- AI ENGINE & DATABASE ---
-  const video = document.getElementById('video');
-  const overlay = document.getElementById('overlay');
-  const aiStatus = document.getElementById('aiStatus');
-  let faceMatcher = null;
-
   async function runStartupEmployeeUpdate(){
     setStatusLine("UPDATING...", "proc");
     try {
@@ -425,7 +412,6 @@
       } catch(e) { aiStatus.textContent = "CAMERA ERROR"; }
   }
 
-  // --- MODE 1: FACE SCAN (MANUAL CAPTURE) ---
   async function captureAndAnalyze() {
       if(!faceMatcher) {
           showToast('Database empty or loading', 'error');
@@ -477,7 +463,6 @@
       capBtn.disabled = false;
   }
 
-  // --- CORE SUBMIT (POST REQUEST) ---
   async function submitScan(actionType){
     document.getElementById('confirmModal').style.display = 'none';
     setStatusLine("SAVING " + actionType + "...", "proc");
@@ -504,7 +489,6 @@
     }
   }
 
-  // --- MODE 2: QR / MANUAL SUBMIT ---
   async function submitQR(actionType) {
       const code = document.getElementById('qrInput').value.trim().toUpperCase();
       if(!code) {
@@ -529,7 +513,6 @@
       }
   }
 
-  // --- MODE 3: HR REGISTRATION ---
   async function fetchNextEmployeeCode() {
       try {
          const res = await fetchAPI({ page: 'api_get_next_code' });
