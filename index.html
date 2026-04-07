@@ -48,16 +48,19 @@
     .toast.error { border-left: 6px solid var(--error); }
     .toast.info { border-left: 6px solid var(--accent); }
 
-    .gate { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(8px); padding: 20px; }
+    /* ADMIN GATE (HIDDEN BY DEFAULT NOW) */
+    .gate { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); display: none; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(8px); padding: 20px; }
     .gateCard { background: var(--panel); border: 1px solid var(--border); padding: 30px; border-radius: 20px; text-align: center; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
     .gateTitle { font-size: 20px; font-weight: 900; color: var(--accent); margin-bottom: 5px; }
     .gateInput { width: 100%; background: var(--bg); border: 2px solid var(--border); color: white; padding: 15px; border-radius: 12px; margin: 15px 0; font-size: 16px; text-align: center; font-weight: bold; outline: none; transition: 0.2s; }
     .gateInput:focus { border-color: var(--accent); }
     .gateBtn { width: 100%; background: var(--accent); color: #000; font-weight: 900; font-size: 16px; padding: 15px; border: none; border-radius: 12px; cursor: pointer; transition:0.2s; }
     .gateBtn:active { transform: scale(0.95); }
-    .gateErr { color: var(--error); font-size: 14px; font-weight: bold; margin-top: 10px; min-height: 20px; }
+    .gateCancel { width: 100%; background: transparent; color: var(--sub); font-weight: bold; font-size: 14px; padding: 15px; border: 2px solid var(--border); border-radius: 12px; cursor: pointer; margin-top: 10px; transition:0.2s; }
+    .gateCancel:hover { background: var(--bg); color: #fff; }
 
-    #viewport { display: none; flex-direction: column; height: 100vh; padding: 15px; gap: 15px; max-width: 1200px; margin: 0 auto; }
+    /* VIEWPORT (VISIBLE BY DEFAULT NOW) */
+    #viewport { display: flex; flex-direction: column; height: 100vh; padding: 15px; gap: 15px; max-width: 1200px; margin: 0 auto; }
     
     .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: var(--panel); border-radius: 16px; border: 1px solid var(--border); flex-shrink: 0; }
     .header-title { font-weight: 900; font-size: 18px; display: flex; align-items: center; gap: 10px; }
@@ -127,10 +130,11 @@
 
 <div id="adminGate" class="gate">
   <div class="gateCard">
-    <div class="gateTitle">🤖 AI KIOSK ACCESS</div>
+    <div class="gateTitle">🔒 ADMIN ACCESS REQUIRED</div>
+    <div style="color:var(--sub); font-size:14px; margin-bottom: 15px;">Please verify your identity to access this mode.</div>
     <input id="adminPass" class="gateInput" type="password" placeholder="Admin Password" />
-    <button id="adminBtn" class="gateBtn" type="button">UNLOCK</button>
-    <div id="adminErr" class="gateErr"></div>
+    <button id="adminBtn" class="gateBtn" type="button">UNLOCK MODE</button>
+    <button class="gateCancel" type="button" onclick="cancelAdminUnlock()">CANCEL</button>
   </div>
 </div>
 
@@ -224,8 +228,6 @@
   function showToast(msg, type='info') {
     const box = document.getElementById('toastBox');
     const toast = document.createElement('div');
-    
-    // Add icon based on type
     let icon = "ℹ️";
     if(type === 'success') icon = "✅";
     if(type === 'error') icon = "❌";
@@ -246,6 +248,7 @@
 
   let adminToken = "";
   let currentMode = "SCAN"; 
+  let pendingModeRequest = ""; // Remembers what button they clicked before the password pop-up
   let globalFacesMap = {}; 
   let pendingEmpCode = ""; 
   let localAttendanceCache = {}; 
@@ -253,7 +256,6 @@
   const adminGate = document.getElementById('adminGate');
   const adminPass = document.getElementById('adminPass');
   const adminBtn  = document.getElementById('adminBtn');
-  const viewport  = document.getElementById('viewport');
 
   // 📸 Take Base64 Photo from Video
   function capturePhotoBase64() {
@@ -266,37 +268,48 @@
       return tempCanvas.toDataURL('image/jpeg', 0.8);
   }
 
-  function unlockApp(){
-    adminGate.style.display = "none";
-    viewport.style.display = "flex";
-    showToast('Admin Unlocked Successfully!', 'success');
-    runStartupEmployeeUpdate();
+  // --- AUTOMATIC STARTUP ---
+  window.addEventListener("DOMContentLoaded", () => {
+      runStartupEmployeeUpdate();
+  });
+
+  // --- ADMIN SECURITY GATE LOGIC ---
+  function cancelAdminUnlock() {
+      adminGate.style.display = "none";
+      adminPass.value = "";
+      pendingModeRequest = "";
   }
 
   async function tryUnlock(){
     const p = String(adminPass.value || "");
-    if (!p) {
-        showToast('Please enter a password', 'error');
-        return;
-    }
+    if (!p) return showToast('Please enter a password', 'error');
+    
     adminBtn.disabled = true;
     adminBtn.textContent = "CHECKING...";
     
     try {
       const res = await fetchAPI({ page: 'api_verify_admin', pass: p });
       adminBtn.disabled = false;
-      adminBtn.textContent = "UNLOCK";
+      adminBtn.textContent = "UNLOCK MODE";
       
       if (res && res.ok && res.token){
         adminToken = res.token; 
-        unlockApp();
+        adminGate.style.display = "none";
+        adminPass.value = "";
+        showToast('Access Granted!', 'success');
+        
+        // Auto-switch to the mode they requested
+        if(pendingModeRequest) {
+            switchMode(pendingModeRequest, true); // True = skip auth check
+            pendingModeRequest = "";
+        }
       } else {
         adminPass.value = ""; 
         showToast('Incorrect Password', 'error');
       }
     } catch(err) { 
         adminBtn.disabled = false; 
-        adminBtn.textContent = "UNLOCK";
+        adminBtn.textContent = "UNLOCK MODE";
         showToast('Server Communication Error', 'error'); 
     }
   }
@@ -312,7 +325,22 @@
   setInterval(tick, 1000); tick();
 
   // --- MODE SWITCHER ---
-  function switchMode(mode) {
+  function switchMode(mode, skipAuth = false) {
+      
+      // SECURITY CHECK: If they click QR or REG, and they don't have a token, pop the gate!
+      if ((mode === 'QR' || mode === 'REGISTER') && !adminToken && !skipAuth) {
+          pendingModeRequest = mode;
+          adminGate.style.display = "flex";
+          document.getElementById('adminPass').focus();
+          return;
+      }
+
+      // AUTO-LOCK: If they switch back to SCAN, destroy the admin token for security.
+      if (mode === 'SCAN' && adminToken) {
+          adminToken = ""; 
+          showToast("Device Secured. Admin Mode Locked.", "info");
+      }
+
       currentMode = mode;
       document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.bottom-panel').forEach(p => p.classList.remove('active'));
