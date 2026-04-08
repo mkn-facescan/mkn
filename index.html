@@ -15,8 +15,12 @@
     async function fetchAPI(params) {
       const url = new URL(SCRIPT_URL);
       Object.keys(params).forEach(k => url.searchParams.append(k, params[k]));
+      
+      // 🔥 NEW: Cache-buster to force the browser to pull fresh data every single time
+      url.searchParams.append('t', Date.now()); 
+      
       try {
-        const response = await fetch(url.toString(), { method: 'GET', mode: 'cors' });
+        const response = await fetch(url.toString(), { method: 'GET', mode: 'cors', cache: 'no-store' });
         return await response.json();
       } catch(e) { throw e; }
     }
@@ -161,7 +165,7 @@
 
 <div id="viewport">
   <div class="header">
-    <div class="header-title">🤖 TEAMBAⱽ²</div>
+    <div class="header-title">MKN-ATTENDANCE V.3</div>
     <div class="nav-buttons">
         <button class="mode-btn active" id="btnModeScan" onclick="switchMode('SCAN')">FACE SCAN</button>
         <button class="mode-btn" id="btnModeQR" onclick="switchMode('QR')">QR CODE</button>
