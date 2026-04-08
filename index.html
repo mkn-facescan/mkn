@@ -449,36 +449,49 @@
   }
 
   async function startAIEngine() {
-      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-      aiStatus.style.display = "block";
-      aiStatus.textContent = "LOADING AI MODELS...";
+      // 🔥 FIX 1: Using a hard-pinned, highly reliable version of the model server
+      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/';
       
-      await Promise.all([
-        faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-      ]);
+      aiStatus.style.display = "block";
+      aiStatus.textContent = "LOADING AI MODELS (Please wait...)";
       
       try {
+          // 🔥 FIX 2: Safely attempt to load the models
+          await Promise.all([
+            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+          ]);
+          
           aiStatus.textContent = "LOADING DATABASE...";
+          
           const res = await fetchAPI({ page: 'api_get_faces' });
           if(res.ok && res.faces) {
               const labeledDescriptors = res.faces.map(f => {
                  globalFacesMap[f.code] = f.name; 
-                 
-                 // 🔥 NEW: Store their actual current status directly from the Google Database!
                  localAttendanceCache[f.code] = f.lastAction || "OUT"; 
-                 
                  const float32Array = new Float32Array(JSON.parse(f.descriptor));
                  return new faceapi.LabeledFaceDescriptors(f.code, [float32Array]); 
               });
               if(labeledDescriptors.length > 0) faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45); 
           }
           
+          aiStatus.textContent = "STARTING CAMERA...";
           const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
           video.srcObject = stream;
-          video.onloadedmetadata = () => { overlay.width = video.clientWidth; overlay.height = video.clientHeight; aiStatus.style.display = "none"; };
-      } catch(e) { aiStatus.textContent = "CAMERA ERROR"; }
+          video.onloadedmetadata = () => { 
+              overlay.width = video.clientWidth; 
+              overlay.height = video.clientHeight; 
+              aiStatus.style.display = "none"; 
+          };
+
+      } catch(e) { 
+          // 🔥 FIX 3: If ANYTHING fails, print the exact error on the screen so it doesn't just freeze!
+          console.error(e);
+          aiStatus.style.display = "block";
+          aiStatus.textContent = "ERROR: " + e.message; 
+          showToast("Failed to start scanner: " + e.message, "error");
+      }
   }
 
   async function captureAndAnalyze() {
