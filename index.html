@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
   <title>Mikana AI Kiosk (Enterprise)</title>
-  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.min.js"></script>
   
   <script>
     // =========================================================================
@@ -15,7 +15,10 @@
     async function fetchAPI(params) {
       const url = new URL(SCRIPT_URL);
       Object.keys(params).forEach(k => url.searchParams.append(k, params[k]));
+      
+      // 🔥 CACHE BUSTER: Forces the tablet to ALWAYS download fresh data!
       url.searchParams.append('t', Date.now()); 
+      
       try {
         const response = await fetch(url.toString(), { method: 'GET', mode: 'cors', cache: 'no-store' });
         return await response.json();
@@ -75,8 +78,8 @@
     video { position: absolute; top:0; left:0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
     canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); pointer-events: none; }
     
-    .capture-btn-wrap { display: flex; gap: 10px; padding: 15px; background: var(--panel); border-top: 1px solid var(--border); z-index: 20; flex-shrink: 0; justify-content: center; }
-    .capture-btn { flex: 1; max-width: 300px; color: #fff; padding: 20px; border-radius: 16px; border: none; font-weight: 900; font-size: 16px; cursor: pointer; transition: transform 0.1s; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+    .capture-btn-wrap { padding: 15px; background: var(--panel); border-top: 1px solid var(--border); text-align: center; z-index: 20; flex-shrink: 0; }
+    .capture-btn { width: 100%; max-width: 400px; background: var(--accent); color: #000; padding: 20px; border-radius: 16px; border: none; font-weight: 900; font-size: 18px; cursor: pointer; transition: transform 0.1s; }
     .capture-btn:active { transform: scale(0.96); }
 
     .ai-status-overlay { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); padding: 8px 16px; border-radius: 20px; font-weight: 900; font-size: 14px; color: var(--warning); z-index: 10; border: 1px solid rgba(255,255,255,0.1); }
@@ -85,29 +88,24 @@
     .confirm-box { background: var(--panel); padding: 30px; border-radius: 20px; text-align: center; border: 2px solid var(--accent); width: 100%; max-width: 450px; }
     .confirm-name { font-size: 26px; color: #fff; font-weight: 900; margin: 10px 0 30px 0; }
     .action-row { display: flex; flex-direction: column; gap: 12px; }
-    .btn-time-in { background: var(--success); color: #fff; padding: 18px; border-radius: 12px; border: none; font-weight: 900; font-size: 18px; cursor: pointer; display: none; }
-    .btn-time-out { background: var(--error); color: #fff; padding: 18px; border-radius: 12px; border: none; font-weight: 900; font-size: 18px; cursor: pointer; display: none; }
+    .btn-time-in { background: var(--success); color: #fff; padding: 18px; border-radius: 12px; border: none; font-weight: 900; font-size: 18px; cursor: pointer; }
+    .btn-time-out { background: var(--error); color: #fff; padding: 18px; border-radius: 12px; border: none; font-weight: 900; font-size: 18px; cursor: pointer; }
     .btn-cancel { background: transparent; color: var(--sub); padding: 15px; border-radius: 12px; border: 2px solid var(--border); font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
 
     .panel-wrapper { flex-shrink: 0; width: 100%; transition: all 0.3s ease; }
-    .bottom-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 15px; display: none; align-items: center; gap: 15px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    .bottom-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 15px; display: none; align-items: center; justify-content: center; gap: 15px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
     .bottom-panel.active { display: flex; }
     #panelReg.active, #panelEdit.active { flex-direction: column; align-items: stretch; }
 
-    /* INFO CARD (SCAN MODE) */
-    .avatar-wrapper { width: 80px; height: 80px; border-radius: 50%; background: var(--bg); border: 3px solid var(--border); overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .avatar-wrapper img { width: 100%; height: 100%; object-fit: cover; }
-    .emp-details { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .emp-details { flex: 1; display: flex; flex-direction: column; justify-content: center; text-align: center; }
     .emp-name { font-size: 24px; font-weight: 900; margin: 0 0 4px 0; color: var(--text); }
-    .status-pill { align-self: flex-start; padding: 6px 14px; border-radius: 12px; font-size: 14px; font-weight: 900; background: var(--bg); border: 1px solid var(--border); color: var(--sub); }
+    .status-pill { align-self: center; padding: 6px 14px; border-radius: 12px; font-size: 14px; font-weight: 900; background: var(--bg); border: 1px solid var(--border); color: var(--sub); }
 
-    /* QR MODE CARD */
     .qr-input-wrap { flex: 1; display: flex; flex-direction: column; gap: 10px; width: 100%; }
     .qr-input { width: 100%; background: var(--bg); border: 2px solid var(--accent); color: white; padding: 15px; border-radius: 12px; font-size: 18px; font-weight: bold; text-align: center; text-transform: uppercase; outline: none; }
     .qr-btn-row { display: flex; gap: 10px; }
     .qr-btn { flex: 1; padding: 12px; border-radius: 10px; border: none; font-weight: 900; font-size: 14px; cursor: pointer; color: #fff; }
     
-    /* REGISTRATION / EDIT FORM CARD */
     .reg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
     .reg-input { background: var(--bg); border: 1px solid var(--border); color: white; padding: 10px; border-radius: 8px; font-size: 14px; outline: none; }
     .reg-input:disabled { opacity: 0.8; cursor: not-allowed; border-color: var(--success); color: var(--success); font-weight: bold;}
@@ -119,7 +117,6 @@
     .status-out { background: rgba(239, 68, 68, 0.15); border-color: var(--error); color: var(--error); }
     .status-proc { background: rgba(245, 158, 11, 0.15); border-color: var(--warning); color: var(--warning); }
 
-    /* 🔥 MOBILE RESPONSIVENESS */
     @media (max-width: 768px) {
         #viewport { padding: 10px; gap: 10px; height: 100dvh; } 
         .header { flex-direction: column; gap: 12px; padding: 12px; }
@@ -129,8 +126,6 @@
         .header-clock { text-align: center; margin-left: 0; width: 100%; }
         .cam-container { min-height: 40vh; } 
         .bottom-panel { padding: 12px; flex-direction: column; text-align: center; }
-        .avatar-wrapper { width: 60px; height: 60px; margin: 0 auto; }
-        .status-pill { align-self: center !important; }
         .emp-name { font-size: 18px; }
         .reg-grid { grid-template-columns: 1fr; gap: 8px; }
         .reg-grid > * { grid-column: span 1 !important; }
@@ -155,7 +150,7 @@
 
 <div id="viewport">
   <div class="header">
-    <div class="header-title">MKN-ATTENDANCE V.4</div>
+    <div class="header-title">MKN-ATTENDANCE V.5</div>
     <div class="nav-buttons">
         <button class="mode-btn active" id="btnModeScan" onclick="switchMode('SCAN')">FACE SCAN</button>
         <button class="mode-btn" id="btnModeQR" onclick="switchMode('QR')">QR CODE</button>
@@ -176,8 +171,7 @@
     </div>
     
     <div class="capture-btn-wrap" id="captureWrap">
-        <button class="capture-btn" id="btnCapIn" style="background:var(--success);" onclick="captureAndAnalyze('IN')">🟢 TIME IN</button>
-        <button class="capture-btn" id="btnCapOut" style="background:var(--error);" onclick="captureAndAnalyze('OUT')">🔴 TIME OUT</button>
+        <button class="capture-btn" id="captureBtn" onclick="captureAndAnalyze()">📸 CAPTURE & RECOGNIZE</button>
     </div>
     
     <div class="confirm-overlay" id="confirmModal">
@@ -185,8 +179,8 @@
             <div style="color:var(--sub); font-weight:bold;">EMPLOYEE IDENTIFIED</div>
             <div class="confirm-name" id="confirmName">ARCHIE (MIK-235)</div>
             <div class="action-row">
-                <button class="btn-time-in" id="btnTimeIn" onclick="submitScan()">🟢 CONFIRM TIME IN</button>
-                <button class="btn-time-out" id="btnTimeOut" onclick="submitScan()">🔴 CONFIRM TIME OUT</button>
+                <button class="btn-time-in" id="btnTimeIn" onclick="submitScan('IN')">🟢 TIME IN</button>
+                <button class="btn-time-out" id="btnTimeOut" onclick="submitScan('OUT')">🔴 TIME OUT</button>
                 <button class="btn-cancel" onclick="resetScanner()">❌ CANCEL / RETRY</button>
             </div>
         </div>
@@ -195,10 +189,9 @@
 
   <div class="panel-wrapper">
     <div class="bottom-panel active" id="panelScan">
-      <div class="avatar-wrapper" id="avatarBox"><div class="avatar-placeholder">👤</div></div>
       <div class="emp-details">
         <h2 class="emp-name" id="empName">WAITING FOR SCAN</h2>
-        <div class="status-pill" id="statusLine">SELECT ACTION & SCAN</div>
+        <div class="status-pill" id="statusLine">READY</div>
       </div>
     </div>
 
@@ -288,10 +281,7 @@
   let currentMode = "SCAN"; 
   let pendingModeRequest = ""; 
   let globalFacesMap = {}; 
-  
-  // 🔥 NEW: Stores the explicit action the user clicked before scanning
   let pendingEmpCode = ""; 
-  let pendingScanAction = "IN"; 
   
   const adminGate = document.getElementById('adminGate');
   const adminPass = document.getElementById('adminPass');
@@ -360,7 +350,7 @@
       if(mode === 'SCAN') {
           document.getElementById('btnModeScan').classList.add('active');
           document.getElementById('panelScan').classList.add('active');
-          capBtn.style.display = "flex";
+          capBtn.style.display = "block";
       } else if (mode === 'QR') {
           document.getElementById('btnModeQR').classList.add('active');
           document.getElementById('panelQR').classList.add('active');
@@ -378,7 +368,6 @@
 
   const empNameEl = document.getElementById('empName');
   const statusLineEl = document.getElementById('statusLine');
-  const avatarBox = document.getElementById('avatarBox');
 
   function setStatusLine(s, type){
     statusLineEl.textContent = String(s || "READY").trim().toUpperCase();
@@ -386,11 +375,6 @@
     if (type === "proc") statusLineEl.classList.add("status-proc");
     if (type === "in") { statusLineEl.classList.add("status-in"); triggerSuccessFeedback(); }
     if (type === "out") { statusLineEl.classList.add("status-out"); triggerErrorFeedback(); }
-  }
-
-  function setAvatar(src){
-    if (!src){ avatarBox.innerHTML = '<div class="avatar-placeholder">👤</div>'; return; }
-    avatarBox.innerHTML = `<img src="${src}?v=${Date.now()}">`;
   }
 
   const video = document.getElementById('video');
@@ -421,6 +405,7 @@
           
           aiStatus.textContent = "LOADING FAST DATABASE...";
           const res = await fetchAPI({ page: 'api_get_faces' });
+          
           if(res.ok && res.faces) {
               const labeledDescriptors = res.faces.map(f => {
                  globalFacesMap[f.code] = f.name; 
@@ -439,11 +424,8 @@
       }
   }
 
-  // 🔥 UPDATED: Now takes the explicit action from the button they clicked!
-  async function captureAndAnalyze(actionRequested) {
+  async function captureAndAnalyze() {
       if(!faceMatcher) { showToast('Database empty or loading', 'error'); return; }
-      
-      pendingScanAction = actionRequested; 
       
       const ctx = overlay.getContext('2d'); ctx.clearRect(0, 0, overlay.width, overlay.height);
 
@@ -458,15 +440,14 @@
           const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
           
           if (bestMatch.label !== "unknown" && bestMatch.distance < 0.45) {
-              const drawBox = new faceapi.draw.DrawBox(resizedDetection.detection.box, { label: bestMatch.label, boxColor: pendingScanAction === 'IN' ? '#10b981' : '#ef4444' });
+              const drawBox = new faceapi.draw.DrawBox(resizedDetection.detection.box, { label: bestMatch.label, boxColor: '#10b981' });
               drawBox.draw(overlay);
               
               pendingEmpCode = bestMatch.label;
               document.getElementById('confirmName').textContent = `${globalFacesMap[pendingEmpCode] || pendingEmpCode} (${pendingEmpCode})`;
               
-              // Only show the specific confirm button they clicked
-              document.getElementById('btnTimeIn').style.display = pendingScanAction === "IN" ? "block" : "none";
-              document.getElementById('btnTimeOut').style.display = pendingScanAction === "OUT" ? "block" : "none";
+              document.getElementById('btnTimeIn').style.display = "block";
+              document.getElementById('btnTimeOut').style.display = "block";
               
               document.getElementById('confirmModal').style.display = 'flex';
           } else {
@@ -483,34 +464,31 @@
   function resetScanner() {
       document.getElementById('confirmModal').style.display = 'none';
       pendingEmpCode = "";
-      empNameEl.textContent = "WAITING FOR SCAN"; setStatusLine("SELECT ACTION & SCAN", ""); setAvatar("");
+      empNameEl.textContent = "WAITING FOR SCAN"; setStatusLine("READY", ""); 
       const ctx = overlay.getContext('2d'); ctx.clearRect(0, 0, overlay.width, overlay.height);
       
-      const btnIn = document.getElementById('btnCapIn');
-      const btnOut = document.getElementById('btnCapOut');
+      const btnIn = document.getElementById('btnTimeIn');
+      const btnOut = document.getElementById('btnTimeOut');
       btnIn.disabled = false; btnIn.textContent = "🟢 TIME IN";
       btnOut.disabled = false; btnOut.textContent = "🔴 TIME OUT";
   }
 
   // 🔥 UPDATED: Face Scan - NO PHOTO UPLOAD (Blazing Fast)
-  async function submitScan() {
+  async function submitScan(actionType) {
     document.getElementById('confirmModal').style.display = 'none';
-    setStatusLine("SAVING " + pendingScanAction + "...", "proc");
+    setStatusLine("SAVING " + actionType + "...", "proc");
     
-    const btnIn = document.getElementById('btnCapIn'); 
-    const btnOut = document.getElementById('btnCapOut');
+    const btnIn = document.getElementById('btnTimeIn'); 
+    const btnOut = document.getElementById('btnTimeOut');
     btnIn.disabled = true; btnOut.disabled = true;
-    
-    if (pendingScanAction === "IN") btnIn.textContent = "⏳ SAVING...";
-    if (pendingScanAction === "OUT") btnOut.textContent = "⏳ SAVING...";
 
     try {
-      // Notice photoB64 is completely empty here! No image upload delay.
-      const res = await postAPI({ page: 'api_scan', code: pendingEmpCode, adminToken: adminToken, action: pendingScanAction, photoB64: "" });
+      // Passes action explicitly. PhotoB64 is completely empty.
+      const res = await postAPI({ page: 'api_scan', code: pendingEmpCode, adminToken: adminToken, action: actionType, photoB64: "" });
       if(!res || !res.ok) throw new Error(res.error || res.statusLine || "FAILED");
 
-      setStatusLine(`${pendingScanAction} SAVED`, pendingScanAction === "IN" ? "in" : "out");
-      showToast(`${globalFacesMap[pendingEmpCode] || pendingEmpCode} successfully timed ${pendingScanAction.toLowerCase()}!`, 'success');
+      setStatusLine(`${actionType} SAVED`, actionType === "IN" ? "in" : "out");
+      showToast(`${globalFacesMap[pendingEmpCode] || pendingEmpCode} successfully timed ${actionType.toLowerCase()}!`, 'success');
       setTimeout(resetScanner, 3000);
 
     } catch(err) {
