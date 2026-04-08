@@ -461,6 +461,10 @@
           if(res.ok && res.faces) {
               const labeledDescriptors = res.faces.map(f => {
                  globalFacesMap[f.code] = f.name; 
+                 
+                 // 🔥 NEW: Store their actual current status directly from the Google Database!
+                 localAttendanceCache[f.code] = f.lastAction || "OUT"; 
+                 
                  const float32Array = new Float32Array(JSON.parse(f.descriptor));
                  return new faceapi.LabeledFaceDescriptors(f.code, [float32Array]); 
               });
