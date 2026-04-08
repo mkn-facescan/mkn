@@ -492,45 +492,49 @@
       btnOut.disabled = false; btnOut.textContent = "🔴 TIME OUT";
   }
 
-  // 🔥 UPDATED: Reads the pendingScanAction they chose!
+  // 🔥 UPDATED: Face Scan - NO PHOTO UPLOAD (Blazing Fast)
   async function submitScan() {
     document.getElementById('confirmModal').style.display = 'none';
     setStatusLine("SAVING " + pendingScanAction + "...", "proc");
     
-    const btnIn = document.getElementById('btnCapIn'); const btnOut = document.getElementById('btnCapOut');
+    const btnIn = document.getElementById('btnCapIn'); 
+    const btnOut = document.getElementById('btnCapOut');
     btnIn.disabled = true; btnOut.disabled = true;
-    if (pendingScanAction === "IN") btnIn.textContent = "⏳ UPLOADING...";
-    if (pendingScanAction === "OUT") btnOut.textContent = "⏳ UPLOADING...";
-
-    const photoB64 = capturePhotoBase64();
+    
+    if (pendingScanAction === "IN") btnIn.textContent = "⏳ SAVING...";
+    if (pendingScanAction === "OUT") btnOut.textContent = "⏳ SAVING...";
 
     try {
-      // It passes action: "IN" or "OUT" directly to the server to overwrite automatically
-      const res = await postAPI({ page: 'api_scan', code: pendingEmpCode, adminToken: adminToken, action: pendingScanAction, photoB64: photoB64 });
+      // Notice photoB64 is completely empty here! No image upload delay.
+      const res = await postAPI({ page: 'api_scan', code: pendingEmpCode, adminToken: adminToken, action: pendingScanAction, photoB64: "" });
       if(!res || !res.ok) throw new Error(res.error || res.statusLine || "FAILED");
 
       setStatusLine(`${pendingScanAction} SAVED`, pendingScanAction === "IN" ? "in" : "out");
       showToast(`${globalFacesMap[pendingEmpCode] || pendingEmpCode} successfully timed ${pendingScanAction.toLowerCase()}!`, 'success');
-      setTimeout(resetScanner, 3500);
+      setTimeout(resetScanner, 3000);
 
     } catch(err) {
       setStatusLine(err.message || "SERVER ERROR", "out");
       showToast('Failed to save attendance', 'error');
-      setTimeout(resetScanner, 3500);
+      setTimeout(resetScanner, 3000);
     }
   }
 
+  // 🔥 UPDATED: QR Scan - CAPTURES PHOTO AS PROOF
   async function submitQR(actionType) {
       const code = document.getElementById('qrInput').value.trim().toUpperCase();
       if(!code) return showToast('Please type or scan a code first.', 'error');
       
       document.getElementById('qrInput').value = "UPLOADING PHOTO...";
       pendingEmpCode = code;
+      
+      // We explicitly capture the photo here to prevent buddy-punching
       const photoB64 = capturePhotoBase64();
 
       try {
         const res = await postAPI({ page: 'api_scan', code: pendingEmpCode, adminToken: adminToken, action: actionType, photoB64: photoB64 });
         if(!res || !res.ok) throw new Error(res.error || res.statusLine || "FAILED");
+        
         showToast(`${code} successfully timed ${actionType.toLowerCase()}!`, 'success');
         document.getElementById('qrInput').value = "";
       } catch(err) {
