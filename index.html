@@ -1,606 +1,318 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
-  <title>Mikana AI Kiosk (Enterprise)</title>
-  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.min.js"></script>
-  
-  <script>
-    // =========================================================================
-    // ⚠️ YOUR GOOGLE WEB APP URL:
-    // =========================================================================
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0TytppAu3jEDM5c_tu8tyO_mMn5Puco8sPEHYmrky3U9qzh_E8BUuI9UTeYOv_ND-OA/exec"; 
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mikana Face Terminal</title>
     
-    async function fetchAPI(params) {
-      const url = new URL(SCRIPT_URL);
-      Object.keys(params).forEach(k => url.searchParams.append(k, params[k]));
-      url.searchParams.append('t', Date.now()); 
-      try {
-        const response = await fetch(url.toString(), { method: 'GET', mode: 'cors', cache: 'no-store' });
-        return await response.json();
-      } catch(e) { throw e; }
-    }
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
 
-    async function postAPI(payload) {
-      try {
-        const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-        return await response.json();
-      } catch(e) { throw e; }
-    }
-  </script>
-
-  <style>
-    :root { --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --sub: #94a3b8; --border: #334155; --accent: #38bdf8; --success: #10b981; --error: #ef4444; --warning: #f59e0b; }
-    *, *::before, *::after { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg); color: var(--text); overflow-x: hidden; }
-    
-    body.flash-success .cam-container { box-shadow: 0 0 40px rgba(16, 185, 129, 0.6); border-color: var(--success); }
-    body.flash-error .cam-container { box-shadow: 0 0 40px rgba(239, 68, 68, 0.6); border-color: var(--error); }
-
-    #toastBox { position:fixed; top:20px; right:20px; z-index:99999; display:flex; flex-direction:column; gap:10px; pointer-events:none; }
-    .toast { min-width:250px; background:var(--panel); color:#fff; padding:15px 20px; border-radius:12px; font-weight:900; box-shadow:0 10px 40px rgba(0,0,0,0.5); display:flex; align-items:center; gap:12px; transform:translateX(120%); transition:transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid var(--border); }
-    .toast.show { transform:translateX(0); }
-    .toast.success { border-left: 6px solid var(--success); }
-    .toast.error { border-left: 6px solid var(--error); }
-    .toast.info { border-left: 6px solid var(--accent); }
-
-    .gate { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.9); display: none; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(8px); padding: 20px; }
-    .gateCard { background: var(--panel); border: 1px solid var(--border); padding: 30px; border-radius: 20px; text-align: center; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
-    .gateTitle { font-size: 20px; font-weight: 900; color: var(--accent); margin-bottom: 5px; }
-    .gateInput { width: 100%; background: var(--bg); border: 2px solid var(--border); color: white; padding: 15px; border-radius: 12px; margin: 15px 0; font-size: 16px; text-align: center; font-weight: bold; outline: none; transition: 0.2s; }
-    .gateInput:focus { border-color: var(--accent); }
-    .gateBtn { width: 100%; background: var(--accent); color: #000; font-weight: 900; font-size: 16px; padding: 15px; border: none; border-radius: 12px; cursor: pointer; transition:0.2s; }
-    .gateBtn:active { transform: scale(0.95); }
-    .gateCancel { width: 100%; background: transparent; color: var(--sub); font-weight: bold; font-size: 14px; padding: 15px; border: 2px solid var(--border); border-radius: 12px; cursor: pointer; margin-top: 10px; transition:0.2s; }
-    .gateCancel:hover { background: var(--bg); color: #fff; }
-
-    #viewport { display: flex; flex-direction: column; height: 100vh; padding: 15px; gap: 15px; max-width: 1200px; margin: 0 auto; }
-    
-    .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: var(--panel); border-radius: 16px; border: 1px solid var(--border); flex-shrink: 0; }
-    .header-title { font-weight: 900; font-size: 18px; display: flex; align-items: center; gap: 10px; margin-right: 15px; white-space: nowrap;}
-    
-    .nav-buttons { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
-    .mode-btn { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 8px 10px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 11px; white-space: nowrap; }
-    .mode-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .mode-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
-
-    .header-clock { text-align: right; margin-left: 15px; flex-shrink: 0; }
-    .time { font-size: 20px; font-weight: 900; }
-    .date { font-size: 12px; color: var(--sub); font-weight: 600; text-transform: uppercase; }
-
-    .cam-container { flex: 1; position: relative; background: #000; border-radius: 20px; overflow: hidden; border: 3px solid var(--border); transition: all 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display:flex; flex-direction:column; min-height: 300px; }
-    
-    .video-wrap { flex: 1; position: relative; width: 100%; height: 100%; overflow:hidden; display: flex; align-items: center; justify-content: center; }
-    video { position: absolute; top:0; left:0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-    canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); pointer-events: none; }
-    
-    .capture-btn-wrap { padding: 15px; background: var(--panel); border-top: 1px solid var(--border); text-align: center; z-index: 20; flex-shrink: 0; }
-    .capture-btn { width: 100%; max-width: 400px; background: var(--accent); color: #000; padding: 20px; border-radius: 16px; border: none; font-weight: 900; font-size: 18px; cursor: pointer; transition: transform 0.1s; }
-    .capture-btn:active { transform: scale(0.96); }
-
-    .ai-status-overlay { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); padding: 8px 16px; border-radius: 20px; font-weight: 900; font-size: 14px; color: var(--warning); z-index: 10; border: 1px solid rgba(255,255,255,0.1); }
-
-    /* 🔥 MODAL LAYOUT UPGRADES */
-    .confirm-overlay { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
-    .confirm-box { background: var(--panel); padding: 30px; border-radius: 20px; text-align: center; border: 2px solid var(--accent); width: 100%; max-width: 450px; }
-    .confirm-name { font-size: 28px; color: #fff; font-weight: 900; margin: 10px 0 25px 0; }
-    
-    /* Side-by-side Button Grid */
-    .action-grid { display: flex; gap: 12px; margin-bottom: 12px; width: 100%; }
-    .action-grid button { flex: 1; padding: 18px 10px; border-radius: 12px; border: none; font-weight: 900; font-size: 16px; cursor: pointer; transition: 0.1s; color: #fff; }
-    .action-grid button:active { transform: scale(0.95); }
-    .btn-time-in { background: var(--success); }
-    .btn-time-out { background: var(--error); }
-    
-    .btn-cancel { width: 100%; background: transparent; color: var(--sub); padding: 15px; border-radius: 12px; border: 2px solid var(--border); font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.1s; }
-    .btn-cancel:hover { background: var(--bg); color: #fff; }
-    .btn-cancel:active { transform: scale(0.95); }
-
-    .panel-wrapper { flex-shrink: 0; width: 100%; transition: all 0.3s ease; }
-    .bottom-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 15px; display: none; align-items: center; justify-content: center; gap: 15px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-    .bottom-panel.active { display: flex; }
-    #panelReg.active, #panelEdit.active { flex-direction: column; align-items: stretch; }
-
-    .emp-details { flex: 1; display: flex; flex-direction: column; justify-content: center; text-align: center; }
-    .emp-name { font-size: 24px; font-weight: 900; margin: 0 0 4px 0; color: var(--text); }
-    .status-pill { align-self: center; padding: 6px 14px; border-radius: 12px; font-size: 14px; font-weight: 900; background: var(--bg); border: 1px solid var(--border); color: var(--sub); }
-
-    .qr-input-wrap { flex: 1; display: flex; flex-direction: column; gap: 10px; width: 100%; }
-    .qr-input { width: 100%; background: var(--bg); border: 2px solid var(--accent); color: white; padding: 15px; border-radius: 12px; font-size: 18px; font-weight: bold; text-align: center; text-transform: uppercase; outline: none; }
-    .qr-btn-row { display: flex; gap: 10px; }
-    .qr-btn { flex: 1; padding: 12px; border-radius: 10px; border: none; font-weight: 900; font-size: 14px; cursor: pointer; color: #fff; }
-    
-    .reg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
-    .reg-input { background: var(--bg); border: 1px solid var(--border); color: white; padding: 10px; border-radius: 8px; font-size: 14px; outline: none; }
-    .reg-input:disabled { opacity: 0.8; cursor: not-allowed; border-color: var(--success); color: var(--success); font-weight: bold;}
-    .reg-input.full { grid-column: span 2; }
-    .reg-submit-btn { grid-column: span 2; background: var(--accent); color: #000; padding: 12px; border-radius: 8px; border: none; font-weight: 900; cursor: pointer; transition: 0.2s; }
-    .reg-submit-btn:active { transform: scale(0.97); }
-
-    .status-in { background: rgba(16, 185, 129, 0.15); border-color: var(--success); color: var(--success); }
-    .status-out { background: rgba(239, 68, 68, 0.15); border-color: var(--error); color: var(--error); }
-    .status-proc { background: rgba(245, 158, 11, 0.15); border-color: var(--warning); color: var(--warning); }
-
-    @media (max-width: 768px) {
-        #viewport { padding: 10px; gap: 10px; height: 100dvh; } 
-        .header { flex-direction: column; gap: 12px; padding: 12px; }
-        .header-title { margin-right: 0; justify-content: center; width: 100%; }
-        .nav-buttons { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .mode-btn { width: 100%; padding: 12px 5px; font-size: 11px; text-align: center; }
-        .header-clock { text-align: center; margin-left: 0; width: 100%; }
-        .cam-container { min-height: 40vh; } 
-        .bottom-panel { padding: 12px; flex-direction: column; text-align: center; }
-        .emp-name { font-size: 18px; }
-        .reg-grid { grid-template-columns: 1fr; gap: 8px; }
-        .reg-grid > * { grid-column: span 1 !important; }
-        .flex-row-mobile { flex-direction: column !important; }
-        .flex-row-mobile button { width: 100% !important; }
-    }
-  </style>
-</head>
-<body>
-
-<div id="toastBox"></div>
-
-<div id="adminGate" class="gate">
-  <div class="gateCard">
-    <div class="gateTitle">🔒 ADMIN ACCESS REQUIRED</div>
-    <div style="color:var(--sub); font-size:14px; margin-bottom: 15px;">Please verify your identity to access this mode.</div>
-    <input id="adminPass" class="gateInput" type="password" placeholder="Admin Password" />
-    <button id="adminBtn" class="gateBtn" type="button">UNLOCK MODE</button>
-    <button class="gateCancel" type="button" onclick="cancelAdminUnlock()">CANCEL</button>
-  </div>
-</div>
-
-<div id="viewport">
-  <div class="header">
-    <div class="header-title">MKN-ATTENDANCE V.4</div>
-    <div class="nav-buttons">
-        <button class="mode-btn active" id="btnModeScan" onclick="switchMode('SCAN')">FACE SCAN</button>
-        <button class="mode-btn" id="btnModeQR" onclick="switchMode('QR')">QR CODE</button>
-        <button class="mode-btn" id="btnModeReg" onclick="switchMode('REGISTER')">NEW HR</button>
-        <button class="mode-btn" id="btnModeEdit" onclick="switchMode('EDIT')">EDIT EMP</button>
-    </div>
-    <div class="header-clock">
-      <div class="time" id="clock">00:00:00</div>
-      <div class="date" id="clockDate">—</div>
-    </div>
-  </div>
-
-  <div class="cam-container" id="camContainer">
-    <div class="video-wrap">
-        <video id="video" autoplay muted playsinline></video>
-        <canvas id="overlay"></canvas>
-        <div class="ai-status-overlay" id="aiStatus" style="display:none;"></div>
-    </div>
-    
-    <div class="capture-btn-wrap" id="captureWrap">
-        <button class="capture-btn" id="captureBtn" onclick="captureAndAnalyze()">📸 CAPTURE & RECOGNIZE</button>
-    </div>
-    
-    <div class="confirm-overlay" id="confirmModal">
-        <div class="confirm-box">
-            <div style="color:var(--sub); font-weight:bold; letter-spacing:1px;">EMPLOYEE IDENTIFIED</div>
-            <div class="confirm-name" id="confirmName">ARCHIE (MIK-235)</div>
-            
-            <div class="action-grid">
-                <button class="btn-time-in" id="btnTimeIn" onclick="submitScan('IN')">🟢 TIME IN</button>
-                <button class="btn-time-out" id="btnTimeOut" onclick="submitScan('OUT')">🔴 TIME OUT</button>
-            </div>
-            
-            <button class="btn-cancel" onclick="resetScanner()">❌ CANCEL / RETRY</button>
-        </div>
-    </div>
-  </div>
-
-  <div class="panel-wrapper">
-    <div class="bottom-panel active" id="panelScan">
-      <div class="emp-details">
-        <h2 class="emp-name" id="empName">WAITING FOR SCAN</h2>
-        <div class="status-pill" id="statusLine">READY</div>
-      </div>
-    </div>
-
-    <div class="bottom-panel" id="panelQR">
-        <div class="qr-input-wrap">
-            <input type="text" class="qr-input" id="qrInput" placeholder="SCAN OR TYPE CODE HERE (e.g. MIK-235)">
-            <div class="qr-btn-row">
-                <button class="qr-btn" style="background:var(--success)" onclick="submitQR('IN')">📸 TIME IN</button>
-                <button class="qr-btn" style="background:var(--error)" onclick="submitQR('OUT')">📸 TIME OUT</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="bottom-panel" id="panelReg">
-        <div class="reg-grid">
-            <input type="text" class="reg-input full" id="regCode" disabled placeholder="FETCHING NEXT CODE...">
-            <input type="text" class="reg-input" id="regName" placeholder="Full Name">
-            <select class="reg-input" id="regDept">
-                <option value="" disabled selected>Select Dept</option>
-                <option value="ASSEMBLY">ASSEMBLY</option>
-                <option value="FULFILLMENT">FULFILLMENT</option>
-                <option value="OFFLINE">OFFLINE</option>
-            </select>
-            <select class="reg-input" id="regShift">
-                <option value="" disabled selected>Select Shift</option>
-                <option value="MORNING SHIFT">MORNING</option>
-                <option value="NIGHT SHIFT">NIGHT</option>
-            </select>
-            <input type="text" class="reg-input" id="regMobile" placeholder="Mobile Number">
-            <select class="reg-input" id="regStatus"><option value="ACTIVE">ACTIVE</option></select>
-            <input type="text" class="reg-input full" id="regAddress" placeholder="Home Address">
-            <button class="reg-submit-btn full" id="regSubmitBtn" onclick="submitRegistration()">📸 MAP FACE & SAVE HR RECORD</button>
-        </div>
-    </div>
-
-    <div class="bottom-panel" id="panelEdit">
-        <div class="reg-grid">
-            <div style="grid-column: span 2; display:flex; gap:10px;" class="flex-row-mobile">
-                <input type="text" class="reg-input" id="editSearchCode" placeholder="Enter Code (e.g. MIK-1)" style="flex:1; text-transform:uppercase;">
-                <button class="reg-submit-btn" style="width:80px; padding:10px;" onclick="loadEmployeeForEdit()">LOAD</button>
-            </div>
-            <input type="text" class="reg-input" id="editName" placeholder="Full Name">
-            <select class="reg-input" id="editDept">
-                <option value="" disabled selected>Select Dept</option>
-                <option value="ASSEMBLY">ASSEMBLY</option>
-                <option value="FULFILLMENT">FULFILLMENT</option>
-                <option value="OFFLINE">OFFLINE</option>
-            </select>
-            <select class="reg-input" id="editShift">
-                <option value="" disabled selected>Select Shift</option>
-                <option value="MORNING SHIFT">MORNING</option>
-                <option value="NIGHT SHIFT">NIGHT</option>
-            </select>
-            <input type="text" class="reg-input" id="editMobile" placeholder="Mobile Number">
-            <select class="reg-input" id="editStatus">
-                <option value="ACTIVE">ACTIVE</option>
-                <option value="INACTIVE">INACTIVE</option>
-            </select>
-            <input type="text" class="reg-input full" id="editAddress" placeholder="Home Address">
-            <div style="grid-column: span 2; display:flex; gap:10px; margin-top: 4px;" class="flex-row-mobile">
-                <button class="reg-submit-btn" style="background:var(--success); flex:1;" onclick="submitEdit(false)">💾 SAVE INFO ONLY</button>
-                <button class="reg-submit-btn" style="background:var(--warning); flex:1; color:#000;" onclick="submitEdit(true)">📸 UPDATE + NEW FACE</button>
-            </div>
-        </div>
-    </div>
-  </div>
-</div>
-
-<script>
-  function showToast(msg, type='info') {
-    const box = document.getElementById('toastBox');
-    const toast = document.createElement('div');
-    let icon = "ℹ️";
-    if(type === 'success') icon = "✅";
-    if(type === 'error') icon = "❌";
-    toast.className = `toast ${type}`;
-    toast.innerHTML = `<span>${icon}</span> <span>${msg}</span>`;
-    box.appendChild(toast);
-    setTimeout(() => toast.classList.add('show'), 10);
-    setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3500);
-  }
-
-  function triggerSuccessFeedback() { document.body.classList.add('flash-success'); setTimeout(() => { document.body.classList.remove('flash-success'); }, 400); }
-  function triggerErrorFeedback() { document.body.classList.add('flash-error'); setTimeout(() => { document.body.classList.remove('flash-error'); }, 400); }
-
-  let adminToken = "";
-  let currentMode = "SCAN"; 
-  let pendingModeRequest = ""; 
-  let globalFacesMap = {}; 
-  let pendingEmpCode = ""; 
-  
-  const adminGate = document.getElementById('adminGate');
-  const adminPass = document.getElementById('adminPass');
-  const adminBtn  = document.getElementById('adminBtn');
-
-  function capturePhotoBase64() {
-      const vid = document.getElementById('video');
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = vid.videoWidth; tempCanvas.height = vid.videoHeight;
-      const ctx = tempCanvas.getContext('2d');
-      ctx.translate(tempCanvas.width, 0); ctx.scale(-1, 1);
-      ctx.drawImage(vid, 0, 0, tempCanvas.width, tempCanvas.height);
-      return tempCanvas.toDataURL('image/jpeg', 0.8);
-  }
-
-  function cancelAdminUnlock() {
-      adminGate.style.display = "none";
-      adminPass.value = "";
-      pendingModeRequest = "";
-  }
-
-  async function tryUnlock(){
-    const p = String(adminPass.value || "");
-    if (!p) return showToast('Please enter a password', 'error');
-    
-    adminBtn.disabled = true; adminBtn.textContent = "CHECKING...";
-    
-    try {
-      const res = await fetchAPI({ page: 'api_verify_admin', pass: p });
-      adminBtn.disabled = false; adminBtn.textContent = "UNLOCK MODE";
-      
-      if (res && res.ok && res.token){
-        adminToken = res.token; adminGate.style.display = "none"; adminPass.value = ""; showToast('Access Granted!', 'success');
-        if(pendingModeRequest) { switchMode(pendingModeRequest, true); pendingModeRequest = ""; }
-      } else {
-        adminPass.value = ""; showToast('Incorrect Password', 'error');
-      }
-    } catch(err) { 
-        adminBtn.disabled = false; adminBtn.textContent = "UNLOCK MODE"; showToast('Server Communication Error', 'error'); 
-    }
-  }
-
-  adminBtn.addEventListener('click', tryUnlock);
-  adminPass.addEventListener('keydown', (e)=>{ if (e.key === "Enter"){ e.preventDefault(); tryUnlock(); } });
-
-  function tick(){
-    const d = new Date();
-    document.getElementById('clock').textContent = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
-    document.getElementById('clockDate').textContent = `${["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
-  }
-  setInterval(tick, 1000); tick();
-
-  function switchMode(mode, skipAuth = false) {
-      if ((mode === 'REGISTER' || mode === 'EDIT') && !adminToken && !skipAuth) {
-          pendingModeRequest = mode; adminGate.style.display = "flex"; document.getElementById('adminPass').focus(); return;
-      }
-      if (mode !== 'REGISTER' && mode !== 'EDIT' && adminToken) {
-          adminToken = ""; showToast("Device Secured. Admin Modes Locked.", "info");
-      }
-
-      currentMode = mode;
-      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.bottom-panel').forEach(p => p.classList.remove('active'));
-      const capBtn = document.getElementById('captureWrap');
-      
-      if(mode === 'SCAN') {
-          document.getElementById('btnModeScan').classList.add('active');
-          document.getElementById('panelScan').classList.add('active');
-          capBtn.style.display = "block";
-      } else if (mode === 'QR') {
-          document.getElementById('btnModeQR').classList.add('active');
-          document.getElementById('panelQR').classList.add('active');
-          capBtn.style.display = "none"; document.getElementById('qrInput').focus();
-      } else if (mode === 'REGISTER') {
-          document.getElementById('btnModeReg').classList.add('active');
-          document.getElementById('panelReg').classList.add('active');
-          capBtn.style.display = "none"; fetchNextEmployeeCode(); 
-      } else if (mode === 'EDIT') {
-          document.getElementById('btnModeEdit').classList.add('active');
-          document.getElementById('panelEdit').classList.add('active');
-          capBtn.style.display = "none"; document.getElementById('editSearchCode').focus();
-      }
-  }
-
-  const empNameEl = document.getElementById('empName');
-  const statusLineEl = document.getElementById('statusLine');
-
-  function setStatusLine(s, type){
-    statusLineEl.textContent = String(s || "READY").trim().toUpperCase();
-    statusLineEl.className = "status-pill";
-    if (type === "proc") statusLineEl.classList.add("status-proc");
-    if (type === "in") { statusLineEl.classList.add("status-in"); triggerSuccessFeedback(); }
-    if (type === "out") { statusLineEl.classList.add("status-out"); triggerErrorFeedback(); }
-  }
-
-  const video = document.getElementById('video');
-  const overlay = document.getElementById('overlay');
-  const aiStatus = document.getElementById('aiStatus');
-  let faceMatcher = null;
-
-  async function runStartupEmployeeUpdate(){
-    setStatusLine("UPDATING...", "proc");
-    try {
-      await fetchAPI({ page: 'api_startup' });
-      setStatusLine("READY", "");
-      startAIEngine();
-    } catch(err) { setStatusLine("ERROR", "out"); }
-  }
-
-  async function startAIEngine() {
-      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/';
-      aiStatus.style.display = "block";
-      aiStatus.textContent = "LOADING AI MODELS (Please wait...)";
-      
-      try {
-          await Promise.all([
-            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-          ]);
-          
-          aiStatus.textContent = "LOADING FAST DATABASE...";
-          const res = await fetchAPI({ page: 'api_get_faces' });
-          
-          if(res.ok && res.faces) {
-              const labeledDescriptors = res.faces.map(f => {
-                 globalFacesMap[f.code] = f.name; 
-                 const float32Array = new Float32Array(JSON.parse(f.descriptor));
-                 return new faceapi.LabeledFaceDescriptors(f.code, [float32Array]); 
-              });
-              if(labeledDescriptors.length > 0) faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45); 
-          }
-          
-          aiStatus.textContent = "STARTING CAMERA...";
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-          video.srcObject = stream;
-          video.onloadedmetadata = () => { overlay.width = video.clientWidth; overlay.height = video.clientHeight; aiStatus.style.display = "none"; };
-      } catch(e) { 
-          console.error(e); aiStatus.style.display = "block"; aiStatus.textContent = "ERROR: " + e.message; showToast("Failed to start scanner: " + e.message, "error");
-      }
-  }
-
-  async function captureAndAnalyze() {
-      if(!faceMatcher) { showToast('Database empty or loading', 'error'); return; }
-      
-      const ctx = overlay.getContext('2d'); ctx.clearRect(0, 0, overlay.width, overlay.height);
-
-      try {
-          const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
-          const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
-          
-          if (!detection) throw new Error("NO FACE DETECTED");
-
-          const displaySize = { width: video.clientWidth, height: video.clientHeight };
-          const resizedDetection = faceapi.resizeResults(detection, displaySize);
-          const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
-          
-          if (bestMatch.label !== "unknown" && bestMatch.distance < 0.45) {
-              const drawBox = new faceapi.draw.DrawBox(resizedDetection.detection.box, { label: bestMatch.label, boxColor: '#10b981' });
-              drawBox.draw(overlay);
-              
-              pendingEmpCode = bestMatch.label;
-              document.getElementById('confirmName').textContent = `${globalFacesMap[pendingEmpCode] || pendingEmpCode} (${pendingEmpCode})`;
-              
-              // ⚠️ The popup now stays open indefinitely waiting for the user's choice!
-              document.getElementById('confirmModal').style.display = 'flex';
-          } else {
-              const drawBox = new faceapi.draw.DrawBox(resizedDetection.detection.box, { label: "Unrecognized", boxColor: '#ef4444' });
-              drawBox.draw(overlay);
-              throw new Error("UNRECOGNIZED FACE");
-          }
-      } catch (err) {
-          showToast(err.message, 'error'); empNameEl.textContent = err.message; setStatusLine("ACCESS DENIED", "out"); triggerErrorFeedback(); 
-          setTimeout(resetScanner, 3000);
-      }
-  }
-
-  function resetScanner() {
-      document.getElementById('confirmModal').style.display = 'none';
-      pendingEmpCode = "";
-      empNameEl.textContent = "WAITING FOR SCAN"; setStatusLine("READY", ""); 
-      const ctx = overlay.getContext('2d'); ctx.clearRect(0, 0, overlay.width, overlay.height);
-      
-      const btnIn = document.getElementById('btnTimeIn');
-      const btnOut = document.getElementById('btnTimeOut');
-      btnIn.disabled = false; btnIn.textContent = "🟢 TIME IN";
-      btnOut.disabled = false; btnOut.textContent = "🔴 TIME OUT";
-  }
-
-  async function submitScan(actionType) {
-    document.getElementById('confirmModal').style.display = 'none';
-    setStatusLine("SAVING " + actionType + "...", "proc");
-    
-    const btnIn = document.getElementById('btnTimeIn'); 
-    const btnOut = document.getElementById('btnTimeOut');
-    btnIn.disabled = true; btnOut.disabled = true;
-
-    try {
-      // Passes action explicitly. PhotoB64 is empty for blazing fast speed.
-      const res = await postAPI({ page: 'api_scan', code: pendingEmpCode, adminToken: adminToken, action: actionType, photoB64: "" });
-      if(!res || !res.ok) throw new Error(res.error || res.statusLine || "FAILED");
-
-      setStatusLine(`${actionType} SAVED`, actionType === "IN" ? "in" : "out");
-      showToast(`${globalFacesMap[pendingEmpCode] || pendingEmpCode} successfully timed ${actionType.toLowerCase()}!`, 'success');
-      setTimeout(resetScanner, 3000);
-
-    } catch(err) {
-      setStatusLine(err.message || "SERVER ERROR", "out");
-      showToast('Failed to save attendance', 'error');
-      setTimeout(resetScanner, 3000);
-    }
-  }
-
-  async function submitQR(actionType) {
-      const code = document.getElementById('qrInput').value.trim().toUpperCase();
-      if(!code) return showToast('Please type or scan a code first.', 'error');
-      
-      document.getElementById('qrInput').value = "UPLOADING PHOTO...";
-      pendingEmpCode = code;
-      
-      // We explicitly capture the photo here to prevent buddy-punching
-      const photoB64 = capturePhotoBase64();
-
-      try {
-        const res = await postAPI({ page: 'api_scan', code: pendingEmpCode, adminToken: adminToken, action: actionType, photoB64: photoB64 });
-        if(!res || !res.ok) throw new Error(res.error || res.statusLine || "FAILED");
+    <style>
+        * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { margin: 0; padding: 0; background: #0f172a; color: white; display: flex; height: 100vh; overflow: hidden; }
         
-        showToast(`${code} successfully timed ${actionType.toLowerCase()}!`, 'success');
-        document.getElementById('qrInput').value = "";
-      } catch(err) {
-        showToast(err.message || "Upload Failed", 'error');
-        document.getElementById('qrInput').value = "";
-      }
-  }
+        .container { display: flex; width: 100%; height: 100%; }
 
-  async function fetchNextEmployeeCode() {
-      try { const res = await fetchAPI({ page: 'api_get_next_code' }); if (res.ok) document.getElementById('regCode').value = res.nextCode; } catch(e) { document.getElementById('regCode').value = "ERROR FETCHING CODE"; }
-  }
+        /* LEFT SIDE - CAMERA */
+        .camera-section { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; padding: 20px; }
+        
+        .header { position: absolute; top: 30px; text-align: center; z-index: 10; }
+        .header h1 { margin: 0; font-size: 32px; font-weight: 900; letter-spacing: 1px; color: #ffffff; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+        .header p { margin: 0; font-size: 14px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; }
 
-  async function submitRegistration() {
-      const code = document.getElementById('regCode').value; const name = document.getElementById('regName').value; const dept = document.getElementById('regDept').value; const shift = document.getElementById('regShift').value; const mobile = document.getElementById('regMobile').value; const status = document.getElementById('regStatus').value; const address = document.getElementById('regAddress').value;
-      if(!name || !dept || !shift) return showToast("Name, Dept, and Shift are required.", "error");
+        /* 🔥 NEW: SYNC INDICATOR */
+        #syncIndicator { position: absolute; top: 30px; left: 30px; background: rgba(0,0,0,0.5); padding: 6px 14px; border-radius: 99px; font-size: 11px; font-weight: 700; color: #cbd5e1; display: none; align-items: center; gap: 8px; z-index: 20; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(5px); }
+        .dot { width: 8px; height: 8px; background: #6366f1; border-radius: 50%; animation: blink 1s infinite alternate; }
+        @keyframes blink { from { opacity: 1; box-shadow: 0 0 10px #6366f1; } to { opacity: 0.3; box-shadow: 0 0 0 transparent;} }
 
-      aiStatus.style.display = "block"; aiStatus.textContent = "MAPPING FACE... HOLD STILL";
-      const btn = document.getElementById('regSubmitBtn'); btn.disabled = true;
-      
-      const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-      if(!detection) { aiStatus.style.display = "none"; btn.disabled = false; return showToast("ERROR: NO FACE DETECTED. PLEASE LOOK AT CAMERA.", "error"); }
-      
-      aiStatus.textContent = "UPLOADING HR PROFILE...";
-      const photoB64 = capturePhotoBase64(); const descStr = JSON.stringify(Array.from(detection.descriptor));
-      
-      try {
-          const res = await postAPI({ page: 'api_register_hr', adminToken: adminToken, code: code, name: name, dept: dept, shift: shift, mobile: mobile, status: status, address: address, faceDescriptor: descStr, profilePhotoB64: photoB64 });
-          if(res.ok) { showToast(`Success! ${name} is now registered.`, 'success'); document.getElementById('regName').value = ""; document.getElementById('regMobile').value = ""; document.getElementById('regAddress').value = ""; aiStatus.style.display = "none"; btn.disabled = false; runStartupEmployeeUpdate(); switchMode('SCAN'); } 
-          else { aiStatus.style.display = "none"; btn.disabled = false; showToast("Registration Failed: " + (res.error || "Unknown Error"), 'error'); }
-      } catch(e) { aiStatus.style.display = "none"; btn.disabled = false; showToast("Network Error during upload!", 'error'); }
-  }
+        .camera-wrapper { position: relative; width: 100%; max-width: 600px; aspect-ratio: 3/4; background: #1e293b; border-radius: 30px; overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 4px solid #334155; }
+        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); z-index: 5; pointer-events: none; }
+        
+        .scan-overlay { position: absolute; inset: 0; border-radius: 30px; z-index: 6; pointer-events: none; }
+        .scan-overlay::after { content: ''; position: absolute; top: 10%; left: 10%; right: 10%; bottom: 10%; border: 2px dashed rgba(99, 102, 241, 0.4); border-radius: 20px; }
 
-  async function loadEmployeeForEdit() {
-      const code = document.getElementById('editSearchCode').value.trim().toUpperCase(); if (!code) return showToast("Please enter an employee code.", "error");
-      showToast("Searching Database...", "info");
-      try {
-          const res = await fetchAPI({ page: 'api_get_emp', code: code, adminToken: adminToken });
-          if (res.ok) { document.getElementById('editName').value = res.name || ""; document.getElementById('editDept').value = res.dept || ""; document.getElementById('editShift').value = res.shift || ""; document.getElementById('editMobile').value = res.mobile || ""; document.getElementById('editStatus').value = res.status || "ACTIVE"; document.getElementById('editAddress').value = res.address || ""; showToast(`Loaded ${res.name}`, "success"); } 
-          else { showToast(res.error || "Employee not found", "error"); }
-      } catch(e) { showToast("Network Error while fetching.", "error"); }
-  }
+        .status { position: absolute; bottom: -60px; left: 50%; transform: translateX(-50%); background: #1e293b; padding: 12px 25px; border-radius: 99px; font-size: 15px; font-weight: 700; color: #e2e8f0; border: 1px solid #334155; z-index: 10; white-space: nowrap; transition: 0.3s; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        .status.ready { border-color: #6366f1; color: #818cf8; }
+        .status.processing { border-color: #f59e0b; color: #fbbf24; background: #451a03; }
+        .status.success { border-color: #10b981; color: #34d399; background: #064e3b; }
+        .status.error { border-color: #ef4444; color: #f87171; background: #450a0a; }
 
-  async function submitEdit(updateFace) {
-      const code = document.getElementById('editSearchCode').value.trim().toUpperCase(); const name = document.getElementById('editName').value; const dept = document.getElementById('editDept').value; const shift = document.getElementById('editShift').value; const mobile = document.getElementById('editMobile').value; const status = document.getElementById('editStatus').value; const address = document.getElementById('editAddress').value;
-      if(!code || !name || !dept || !shift) return showToast("Code, Name, Dept, and Shift are required.", "error");
+        /* RIGHT SIDE - LOGS */
+        .log-panel { width: 350px; background: #1e293b; border-left: 1px solid #334155; display: flex; flex-direction: column; }
+        .log-header { padding: 25px 20px; border-bottom: 1px solid #334155; }
+        .log-header h2 { margin: 0; font-size: 18px; font-weight: 800; color: #f8fafc; }
+        .log-header p { margin: 4px 0 0 0; font-size: 12px; color: #94a3b8; }
+        
+        .log-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        .log-history::-webkit-scrollbar { width: 6px; }
+        .log-history::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
 
-      let descStr = ""; let photoB64 = "";
-      if (updateFace) {
-          aiStatus.style.display = "block"; aiStatus.textContent = "MAPPING NEW FACE... HOLD STILL";
-          const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-          if(!detection) { aiStatus.style.display = "none"; return showToast("ERROR: NO FACE DETECTED.", "error"); }
-          descStr = JSON.stringify(Array.from(detection.descriptor)); photoB64 = capturePhotoBase64();
-      }
-      aiStatus.style.display = "block"; aiStatus.textContent = "SAVING UPDATES...";
-      
-      try {
-          const res = await postAPI({ page: 'api_update_hr', adminToken: adminToken, code: code, name: name, dept: dept, shift: shift, mobile: mobile, status: status, address: address, faceDescriptor: descStr, profilePhotoB64: photoB64 });
-          if(res.ok) { showToast(`Success! Profile updated.`, 'success'); aiStatus.style.display = "none"; if (updateFace) runStartupEmployeeUpdate(); document.getElementById('editSearchCode').value = ""; document.getElementById('editName').value = ""; document.getElementById('editMobile').value = ""; document.getElementById('editAddress').value = ""; switchMode('SCAN'); } 
-          else { aiStatus.style.display = "none"; showToast("Update Failed: " + (res.error || "Unknown Error"), 'error'); }
-      } catch(e) { aiStatus.style.display = "none"; showToast("Network Error!", 'error'); }
-  }
+        .log-item { background: #0f172a; border-radius: 12px; padding: 15px; border-left: 4px solid #6366f1; animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        .log-item.success { border-left-color: #10b981; }
+        .log-item.error { border-left-color: #ef4444; }
+        .log-time { font-size: 11px; font-weight: 800; color: #94a3b8; margin-bottom: 4px; }
+        .log-name { font-size: 14px; font-weight: 700; color: #f8fafc; margin: 0; }
+        .log-msg { font-size: 12px; font-weight: 600; margin: 4px 0 0 0; color: #34d399; }
+        .log-item.error .log-msg { color: #f87171; }
 
-  const OFFICE_LAT = 14.6322; const OFFICE_LON = 120.9976; const MAX_DISTANCE_METERS = 50; 
-  function getDistance(lat1, lon1, lat2, lon2) { const R = 6371e3; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180; const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2); const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); return R * c; }
-  function showGeoError(title, desc) { document.body.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#0f172a; color:#fff; text-align:center; padding:20px; font-family:sans-serif;"><div style="font-size:80px; margin-bottom:10px;">📍</div><h1 style="color:#ef4444; font-size:32px; margin:0 0 10px 0; font-weight:900;">${title}</h1><h3 style="color:#94a3b8; font-weight:normal; line-height:1.5;">${desc}</h3><button onclick="window.location.reload()" style="margin-top:30px; padding:15px 30px; background:#38bdf8; color:#000; border:none; border-radius:12px; font-weight:900; cursor:pointer; transition:0.2s;">RETRY LOCATION</button></div>`; }
-  
-  function verifyLocationAndStart() {
-      if (!navigator.geolocation) return showGeoError("UNSUPPORTED DEVICE", "Your device or browser does not support GPS location.");
-      showToast("Verifying GPS Location...", "info");
-      navigator.geolocation.getCurrentPosition(
-          (position) => {
-              const distance = getDistance(OFFICE_LAT, OFFICE_LON, position.coords.latitude, position.coords.longitude);
-              if (distance <= MAX_DISTANCE_METERS) { showToast("Location Verified!", "success"); runStartupEmployeeUpdate(); } 
-              else { showGeoError("ACCESS DENIED", `You are too far from the office.<br>Distance: ${Math.round(distance)} meters away.`); }
-          },
-          (error) => {
-              let msg = "Could not get your location.";
-              if (error.code === 1) msg = "You blocked the location request. Please allow location access in your browser settings.";
-              if (error.code === 2) msg = "Your GPS signal is unavailable right now.";
-              if (error.code === 3) msg = "The location request timed out.";
-              showGeoError("LOCATION REQUIRED", msg);
-          }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-  }
-  window.addEventListener("DOMContentLoaded", () => { verifyLocationAndStart(); });
-</script>
+        @media (max-width: 900px) {
+            .container { flex-direction: column; }
+            .log-panel { width: 100%; height: 30vh; border-left: none; border-top: 1px solid #334155; }
+            .camera-section { height: 70vh; padding-bottom: 80px; }
+            .camera-wrapper { max-height: 100%; }
+        }
+    </style>
+</head>
+<body onload="startScanner()">
+
+    <div class="container">
+        <div class="camera-section">
+            <div id="syncIndicator"><div class="dot"></div> Syncing Database...</div>
+            <div class="header">
+                <h1>MIKANA</h1>
+                <p>Facial Recognition Terminal</p>
+            </div>
+
+            <div class="camera-wrapper">
+                <video id="video" autoplay muted playsinline></video>
+                <div id="overlay" class="scan-overlay"></div>
+            </div>
+            
+            <div id="status" class="status">Initializing System...</div>
+        </div>
+
+        <div class="log-panel">
+            <div class="log-header">
+                <h2>Recent Scans</h2>
+                <p>Live attendance feed</p>
+            </div>
+            <div class="log-history" id="logHistory">
+                <div style="text-align:center; color:#64748b; font-size:12px; margin-top:20px;">Waiting for scans...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const overlay = document.getElementById('overlay');
+        const statusEl = document.getElementById('status');
+        const logHistoryEl = document.getElementById('logHistory');
+        const syncIndicator = document.getElementById('syncIndicator');
+
+        let faceMatcher = null;
+        let isLogging = false;
+
+        // 1. INITIALIZE: Load Models
+        async function startScanner() {
+            statusEl.textContent = 'Loading AI Models...';
+            try {
+                await Promise.all([
+                    faceapi.nets.ssdMobilenetv1.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'),
+                    faceapi.nets.faceRecognitionNet.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'),
+                    faceapi.nets.faceLandmark68Net.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights')
+                ]);
+                bootWithOfflineMemory(); // Trigger the new offline logic
+            } catch (e) {
+                statusEl.textContent = 'Error loading models.';
+                statusEl.className = 'status error';
+                console.error(e);
+            }
+        }
+
+        // ==========================================
+        // 🔥 NEW: THE INSTANT BOOT SYSTEM 🔥
+        // ==========================================
+        async function bootWithOfflineMemory() {
+            statusEl.textContent = 'Checking memory...';
+            
+            // Look for database in tablet memory
+            const localData = localStorage.getItem('mikana_face_db');
+            
+            if (localData) {
+                console.log("⚡ INSTANT BOOT: Loading database from tablet memory...");
+                try {
+                    const parsedData = JSON.parse(localData);
+                    await createFaceMatcher(parsedData);
+                    
+                    startCamera(); // Turn camera on instantly!
+                    
+                    // Secretly check Google Sheets in the background for new employees
+                    syncWithServer(false); 
+                } catch (e) {
+                    console.error("Local data corrupted, forcing full fetch.", e);
+                    syncWithServer(true);
+                }
+            } else {
+                console.log("📥 FIRST BOOT: No local data found. Fetching from Google Sheets...");
+                statusEl.textContent = 'Downloading Face Database...';
+                syncWithServer(true);
+            }
+        }
+
+        // ==========================================
+        // 🔥 NEW: THE SILENT BACKGROUND SYNC 🔥
+        // ==========================================
+        function syncWithServer(isFirstBoot) {
+            if (!isFirstBoot) syncIndicator.style.display = 'flex'; // Show tiny syncing dot
+            
+            google.script.run.withSuccessHandler(async function(data) {
+                if (!data || data.length === 0) return;
+                
+                // Save fresh data to tablet memory
+                localStorage.setItem('mikana_face_db', JSON.stringify(data));
+                console.log("✅ Database synced with Google Sheets!");
+                
+                // Live update the scanner without stopping the camera
+                await createFaceMatcher(data);
+                syncIndicator.style.display = 'none';
+                
+                if (isFirstBoot) {
+                    startCamera();
+                }
+            }).withFailureHandler(function(err) {
+                console.error("❌ Background Sync failed.", err);
+                syncIndicator.style.display = 'none';
+                if (isFirstBoot) {
+                    statusEl.textContent = 'Network Error. Please refresh.';
+                    statusEl.className = 'status error';
+                }
+            }).getEmployeeDataForMatcher();
+        }
+
+        // 3. BUILD MATCHER ENGINE
+        async function createFaceMatcher(data) {
+            if (!data || data.length === 0) {
+                statusEl.textContent = 'Database empty.';
+                statusEl.className = 'status error';
+                return;
+            }
+            
+            statusEl.textContent = 'Building Face Engine...';
+            const labeledDescriptors = data.map(emp => {
+                const descriptors = JSON.parse(emp.descriptors).map(d => new Float32Array(Object.values(d)));
+                return new faceapi.LabeledFaceDescriptors(emp.label, descriptors);
+            });
+            
+            faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45); 
+            statusEl.textContent = 'Ready. Face the camera.';
+            statusEl.className = 'status ready';
+        }
+
+        // 4. START CAMERA
+        function startCamera() {
+            navigator.mediaDevices.getUserMedia({ 
+                video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" } 
+            }).then(stream => {
+                video.srcObject = stream;
+                handleVideo();
+            }).catch(err => {
+                statusEl.textContent = 'Camera permission denied.';
+                statusEl.className = 'status error';
+                console.error(err);
+            });
+        }
+
+        // 5. SCANNING LOOP
+        function handleVideo() {
+            video.addEventListener('play', () => {
+                const canvas = faceapi.createCanvasFromMedia(video);
+                document.querySelector('.camera-wrapper').append(canvas);
+                const displaySize = { width: video.offsetWidth, height: video.offsetHeight };
+                faceapi.matchDimensions(canvas, displaySize);
+
+                setInterval(async () => {
+                    if (isLogging || !faceMatcher) return;
+
+                    const detections = await faceapi.detectAllFaces(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.6 }))
+                        .withFaceLandmarks()
+                        .withFaceDescriptors();
+
+                    const resizedDetections = faceapi.resizeResults(detections, displaySize);
+                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+
+                    if (resizedDetections.length > 0) {
+                        const detection = resizedDetections[0];
+                        const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+
+                        const box = detection.detection.box;
+                        const ctx = canvas.getContext('2d');
+                        ctx.lineWidth = 4;
+                        ctx.strokeStyle = bestMatch.label !== 'unknown' ? '#10b981' : '#ef4444';
+                        ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+                        if (bestMatch.label !== 'unknown') {
+                            logAttendance(bestMatch.label);
+                        } else {
+                            statusEl.textContent = 'Unknown Face';
+                            statusEl.className = 'status error';
+                        }
+                    } else {
+                        statusEl.textContent = 'Ready. Face the camera.';
+                        statusEl.className = 'status ready';
+                    }
+                }, 150);
+            });
+        }
+
+        // 6. RECORD LOG
+        function logAttendance(label) {
+            isLogging = true;
+            
+            let parts = label.split(" | ");
+            let code = parts[0];
+            let name = parts[1] || code;
+
+            statusEl.textContent = `Logging ${name}...`;
+            statusEl.className = 'status processing';
+
+            google.script.run.withSuccessHandler(function(res) {
+                if (res && res.ok) {
+                    statusEl.textContent = `✅ Logged: ${name}`;
+                    statusEl.className = 'status success';
+                    addLogItem(name, res.remarks, true);
+                    try { new Audio("https://actions.google.com/sounds/v1/ui/message_notification.ogg").play(); } catch(e){}
+                } else {
+                    statusEl.textContent = `❌ Error: ${res.error}`;
+                    statusEl.className = 'status error';
+                    addLogItem(name, res.error, false);
+                }
+
+                setTimeout(() => {
+                    isLogging = false;
+                    statusEl.textContent = 'Ready. Face the camera.';
+                    statusEl.className = 'status ready';
+                }, 1500);
+
+            }).withFailureHandler(function(err) {
+                statusEl.textContent = 'Network Error';
+                statusEl.className = 'status error';
+                addLogItem(name, "Network Error", false);
+                setTimeout(() => { isLogging = false; }, 3000);
+            }).processAttendanceFromFaceScan(code);
+        }
+
+        // 7. UPDATE UI SIDE PANEL
+        function addLogItem(name, msg, isSuccess) {
+            const timeStr = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+            if(logHistoryEl.innerHTML.includes('Waiting for scans...')) logHistoryEl.innerHTML = '';
+            
+            const item = document.createElement('div');
+            item.className = `log-item ${isSuccess ? 'success' : 'error'}`;
+            item.innerHTML = `
+                <div class="log-time">${timeStr}</div>
+                <h4 class="log-name">${name}</h4>
+                <p class="log-msg">${msg}</p>
+            `;
+            logHistoryEl.prepend(item);
+
+            if(logHistoryEl.children.length > 50) {
+                logHistoryEl.removeChild(logHistoryEl.lastChild);
+            }
+        }
+    </script>
 </body>
 </html>
