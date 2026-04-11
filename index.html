@@ -13,6 +13,13 @@
         * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
         body { margin: 0; padding: 0; background: #0f172a; color: white; display: flex; height: 100vh; overflow: hidden; }
         
+        /* 🔥 FULL SCREEN GEOFENCE LOCK */
+        #lockScreen { position: fixed; inset: 0; background: #0f172a; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; transition: opacity 0.5s; }
+        #lockScreen h1 { color: #ef4444; font-size: 36px; margin: 0 0 10px 0; font-weight: 900; letter-spacing: 1px; }
+        #lockScreen p { color: #94a3b8; font-size: 16px; font-weight: 600; max-width: 400px; line-height: 1.5; }
+        #lockScreen .spinner { width: 40px; height: 40px; border: 4px solid rgba(99, 102, 241, 0.3); border-top-color: #6366f1; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
         .container { display: flex; width: 100%; height: 100%; }
 
         /* LEFT SIDE - CAMERA */
@@ -22,7 +29,6 @@
         .header h1 { margin: 0; font-size: 32px; font-weight: 900; letter-spacing: 1px; color: #ffffff; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
         .header p { margin: 0; font-size: 14px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; }
 
-        /* 🔥 NEW: SYNC INDICATOR */
         #syncIndicator { position: absolute; top: 30px; left: 30px; background: rgba(0,0,0,0.5); padding: 6px 14px; border-radius: 99px; font-size: 11px; font-weight: 700; color: #cbd5e1; display: none; align-items: center; gap: 8px; z-index: 20; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(5px); }
         .dot { width: 8px; height: 8px; background: #6366f1; border-radius: 50%; animation: blink 1s infinite alternate; }
         @keyframes blink { from { opacity: 1; box-shadow: 0 0 10px #6366f1; } to { opacity: 0.3; box-shadow: 0 0 0 transparent;} }
@@ -67,7 +73,13 @@
         }
     </style>
 </head>
-<body onload="startScanner()">
+<body onload="verifyLocationAndStart()">
+
+    <div id="lockScreen">
+        <div id="lockSpinner" class="spinner"></div>
+        <h1 id="lockTitle">Verifying Location</h1>
+        <p id="lockMsg">Checking if this terminal is within the allowed office zone...</p>
+    </div>
 
     <div class="container">
         <div class="camera-section">
@@ -97,6 +109,72 @@
     </div>
 
     <script>
+        // ==========================================
+        // 1. 🔥 GEOFENCE GATEKEEPER 🔥
+        // ==========================================
+        const OFFICE_LAT = 14.6438; // <-- Change to your actual Mikana Office Latitude
+        const OFFICE_LNG = 120.9845; // <-- Change to your actual Mikana Office Longitude
+        const MAX_ALLOWED_METERS = 20; // <-- Maximum allowed distance
+
+        function getDistanceInMeters(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; 
+            const p1 = lat1 * Math.PI/180;
+            const p2 = lat2 * Math.PI/180;
+            const deltaP = (lat2-lat1) * Math.PI/180;
+            const deltaLon = (lon2-lon1) * Math.PI/180;
+            const a = Math.sin(deltaP/2) * Math.sin(deltaP/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(deltaLon/2) * Math.sin(deltaLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return Math.round(R * c);
+        }
+
+        function verifyLocationAndStart() {
+            const lockScreen = document.getElementById('lockScreen');
+            const lockTitle = document.getElementById('lockTitle');
+            const lockMsg = document.getElementById('lockMsg');
+            const lockSpinner = document.getElementById('lockSpinner');
+
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        let currentLat = position.coords.latitude;
+                        let currentLng = position.coords.longitude;
+
+                        // 🛠️ UNCOMMENT THESE TWO LINES TO FAKE YOUR LOCATION FOR TESTING:
+                        // currentLat = 14.599510; 
+                        // currentLng = 120.984210;
+
+                        let distance = getDistanceInMeters(OFFICE_LAT, OFFICE_LNG, currentLat, currentLng);
+
+                        if (distance > MAX_ALLOWED_METERS) {
+                            // 🛑 BLOCK ACCESS PERMANENTLY
+                            lockSpinner.style.display = 'none';
+                            lockTitle.textContent = "🔒 Access Denied";
+                            lockMsg.textContent = `This terminal is ${distance} meters away from the office. You must be inside the building to open the scanner.`;
+                        } else {
+                            // ✅ SUCCESS! UNLOCK THE APP AND START SCANNING
+                            lockScreen.style.opacity = '0';
+                            setTimeout(() => { lockScreen.style.display = 'none'; }, 500);
+                            startScanner();
+                        }
+                    },
+                    function(error) {
+                        lockSpinner.style.display = 'none';
+                        lockTitle.textContent = "📍 GPS Error";
+                        lockMsg.textContent = "Could not verify your location. Please ensure Location Services are turned ON and refresh the page.";
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            } else {
+                lockSpinner.style.display = 'none';
+                lockTitle.textContent = "Unsupported Device";
+                lockMsg.textContent = "This device does not have a GPS chip. Cannot verify location.";
+            }
+        }
+
+
+        // ==========================================
+        // 2. SCANNER LOGIC (Unchanged, lightning fast)
+        // ==========================================
         const video = document.getElementById('video');
         const overlay = document.getElementById('overlay');
         const statusEl = document.getElementById('status');
@@ -106,7 +184,6 @@
         let faceMatcher = null;
         let isLogging = false;
 
-        // 1. INITIALIZE: Load Models
         async function startScanner() {
             statusEl.textContent = 'Loading AI Models...';
             try {
@@ -115,66 +192,41 @@
                     faceapi.nets.faceRecognitionNet.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'),
                     faceapi.nets.faceLandmark68Net.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights')
                 ]);
-                bootWithOfflineMemory(); // Trigger the new offline logic
+                bootWithOfflineMemory();
             } catch (e) {
                 statusEl.textContent = 'Error loading models.';
                 statusEl.className = 'status error';
-                console.error(e);
             }
         }
 
-        // ==========================================
-        // 🔥 NEW: THE INSTANT BOOT SYSTEM 🔥
-        // ==========================================
         async function bootWithOfflineMemory() {
             statusEl.textContent = 'Checking memory...';
-            
-            // Look for database in tablet memory
             const localData = localStorage.getItem('mikana_face_db');
             
             if (localData) {
-                console.log("⚡ INSTANT BOOT: Loading database from tablet memory...");
                 try {
-                    const parsedData = JSON.parse(localData);
-                    await createFaceMatcher(parsedData);
-                    
-                    startCamera(); // Turn camera on instantly!
-                    
-                    // Secretly check Google Sheets in the background for new employees
+                    await createFaceMatcher(JSON.parse(localData));
+                    startCamera(); 
                     syncWithServer(false); 
                 } catch (e) {
-                    console.error("Local data corrupted, forcing full fetch.", e);
                     syncWithServer(true);
                 }
             } else {
-                console.log("📥 FIRST BOOT: No local data found. Fetching from Google Sheets...");
-                statusEl.textContent = 'Downloading Face Database...';
+                statusEl.textContent = 'Downloading Database...';
                 syncWithServer(true);
             }
         }
 
-        // ==========================================
-        // 🔥 NEW: THE SILENT BACKGROUND SYNC 🔥
-        // ==========================================
         function syncWithServer(isFirstBoot) {
-            if (!isFirstBoot) syncIndicator.style.display = 'flex'; // Show tiny syncing dot
+            if (!isFirstBoot) syncIndicator.style.display = 'flex'; 
             
             google.script.run.withSuccessHandler(async function(data) {
                 if (!data || data.length === 0) return;
-                
-                // Save fresh data to tablet memory
                 localStorage.setItem('mikana_face_db', JSON.stringify(data));
-                console.log("✅ Database synced with Google Sheets!");
-                
-                // Live update the scanner without stopping the camera
                 await createFaceMatcher(data);
                 syncIndicator.style.display = 'none';
-                
-                if (isFirstBoot) {
-                    startCamera();
-                }
+                if (isFirstBoot) startCamera();
             }).withFailureHandler(function(err) {
-                console.error("❌ Background Sync failed.", err);
                 syncIndicator.style.display = 'none';
                 if (isFirstBoot) {
                     statusEl.textContent = 'Network Error. Please refresh.';
@@ -183,26 +235,16 @@
             }).getEmployeeDataForMatcher();
         }
 
-        // 3. BUILD MATCHER ENGINE
         async function createFaceMatcher(data) {
-            if (!data || data.length === 0) {
-                statusEl.textContent = 'Database empty.';
-                statusEl.className = 'status error';
-                return;
-            }
-            
-            statusEl.textContent = 'Building Face Engine...';
             const labeledDescriptors = data.map(emp => {
                 const descriptors = JSON.parse(emp.descriptors).map(d => new Float32Array(Object.values(d)));
                 return new faceapi.LabeledFaceDescriptors(emp.label, descriptors);
             });
-            
             faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.45); 
             statusEl.textContent = 'Ready. Face the camera.';
             statusEl.className = 'status ready';
         }
 
-        // 4. START CAMERA
         function startCamera() {
             navigator.mediaDevices.getUserMedia({ 
                 video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" } 
@@ -212,11 +254,9 @@
             }).catch(err => {
                 statusEl.textContent = 'Camera permission denied.';
                 statusEl.className = 'status error';
-                console.error(err);
             });
         }
 
-        // 5. SCANNING LOOP
         function handleVideo() {
             video.addEventListener('play', () => {
                 const canvas = faceapi.createCanvasFromMedia(video);
@@ -258,10 +298,11 @@
             });
         }
 
-        // 6. RECORD LOG
+        // ==========================================
+        // 3. FAST LOGGING (No GPS delay here!)
+        // ==========================================
         function logAttendance(label) {
             isLogging = true;
-            
             let parts = label.split(" | ");
             let code = parts[0];
             let name = parts[1] || code;
@@ -269,6 +310,7 @@
             statusEl.textContent = `Logging ${name}...`;
             statusEl.className = 'status processing';
 
+            // Send immediately to Server.js (using your existing function!)
             google.script.run.withSuccessHandler(function(res) {
                 if (res && res.ok) {
                     statusEl.textContent = `✅ Logged: ${name}`;
@@ -285,17 +327,16 @@
                     isLogging = false;
                     statusEl.textContent = 'Ready. Face the camera.';
                     statusEl.className = 'status ready';
-                }, 1500);
+                }, 3000);
 
             }).withFailureHandler(function(err) {
                 statusEl.textContent = 'Network Error';
                 statusEl.className = 'status error';
                 addLogItem(name, "Network Error", false);
                 setTimeout(() => { isLogging = false; }, 3000);
-            }).processAttendanceFromFaceScan(code);
+            }).processAttendanceFromFaceScan(code); // Works with your existing Server.js code!
         }
 
-        // 7. UPDATE UI SIDE PANEL
         function addLogItem(name, msg, isSuccess) {
             const timeStr = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
             if(logHistoryEl.innerHTML.includes('Waiting for scans...')) logHistoryEl.innerHTML = '';
@@ -309,9 +350,7 @@
             `;
             logHistoryEl.prepend(item);
 
-            if(logHistoryEl.children.length > 50) {
-                logHistoryEl.removeChild(logHistoryEl.lastChild);
-            }
+            if(logHistoryEl.children.length > 50) { logHistoryEl.removeChild(logHistoryEl.lastChild); }
         }
     </script>
 </body>
