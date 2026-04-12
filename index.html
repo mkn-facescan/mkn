@@ -7,21 +7,30 @@
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.min.js"></script>
   
   <script>
+    // Your Google Web App URL
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0TytppAu3jEDM5c_tu8tyO_mMn5Puco8sPEHYmrky3U9qzh_E8BUuI9UTeYOv_ND-OA/exec"; 
     
+    // THE FETCHER: Downloads the face data
     async function fetchAPI(params) {
       const url = new URL(SCRIPT_URL);
       Object.keys(params).forEach(k => url.searchParams.append(k, params[k]));
       url.searchParams.append('t', Date.now()); 
       try {
         const response = await fetch(url.toString(), { method: 'GET', mode: 'cors', cache: 'no-store' });
-        const text = await response.text(); // Read raw text first
+        const text = await response.text(); 
         try {
-            return JSON.parse(text); // Try to turn it into JSON
+            return JSON.parse(text); 
         } catch (jsonError) {
-            // If Google blocked us, it returns an HTML page. This will print the exact block reason!
             throw new Error("Google blocked the connection. Server replied: " + text.substring(0, 60));
         }
+      } catch(e) { throw e; }
+    }
+
+    // 🔥 THE MISSING PIECE: Sends the attendance scans to Google Sheets
+    async function postAPI(payload) {
+      try {
+        const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+        return await response.json();
       } catch(e) { throw e; }
     }
   </script>
