@@ -15,14 +15,13 @@
       url.searchParams.append('t', Date.now()); 
       try {
         const response = await fetch(url.toString(), { method: 'GET', mode: 'cors', cache: 'no-store' });
-        return await response.json();
-      } catch(e) { throw e; }
-    }
-
-    async function postAPI(payload) {
-      try {
-        const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-        return await response.json();
+        const text = await response.text(); // Read raw text first
+        try {
+            return JSON.parse(text); // Try to turn it into JSON
+        } catch (jsonError) {
+            // If Google blocked us, it returns an HTML page. This will print the exact block reason!
+            throw new Error("Google blocked the connection. Server replied: " + text.substring(0, 60));
+        }
       } catch(e) { throw e; }
     }
   </script>
@@ -150,7 +149,7 @@
 
 <div id="viewport">
   <div class="header">
-    <div class="header-title">MKN-ATTENDANCE V.6</div>
+    <div class="header-title">MKN-ATTENDANCE V.7</div>
     <div class="nav-buttons">
         <button class="mode-btn active" id="btnModeScan" onclick="switchMode('SCAN')">FACE SCAN</button>
         <button class="mode-btn" id="btnModeQR" onclick="switchMode('QR')">QR CODE</button>
@@ -368,11 +367,8 @@
     } catch(err) { setStatusLine("ERROR", "out"); }
   }
 
-  // 🔥 UPDATED ENGINE: Fixed the frozen AI Model downloading
-  async function startAIEngine() {
-      // Changed from jsdelivr to the direct raw GitHub link to prevent CORS blocks and silent hangs
+ async function startAIEngine() {
       const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights';
-      
       aiStatus.style.display = "block";
       aiStatus.textContent = "VERIFYING AI MODELS...";
       
@@ -383,22 +379,17 @@
             faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
           ]);
 
-          // 1. Check Local Cache for Employee Data
           const cachedFaces = localStorage.getItem('mkn_face_cache_v4');
           
           if (cachedFaces) {
-              console.log("⚡ INSTANT BOOT: Using cached face database.");
               const data = JSON.parse(cachedFaces);
               await initializeMatcher(data);
-              
               startCameraFeed();
               syncFacesInBackground();
           } else {
-              // 2. First time boot: Must download from Google Sheets
               aiStatus.textContent = "DOWNLOADING FAST DATABASE (First boot)...";
               const res = await fetchAPI({ page: 'api_get_faces' });
               
-              // 🔥 Added a strict check to catch Server errors!
               if(res && res.ok && res.faces) {
                   localStorage.setItem('mkn_face_cache_v4', JSON.stringify(res.faces));
                   await initializeMatcher(res.faces);
@@ -408,13 +399,19 @@
               }
           }
       } catch(e) { 
-          // If it fails anywhere, print the EXACT error to the screen
-          aiStatus.textContent = "BOOT ERROR: " + e.message;
-          showToast("Failed to start scanner: " + e.message, "error");
-          console.error(e);
+          // 🔥 BULLETPROOF ERROR EXTRACTOR (No more "undefined")
+          let errMsg = "Unknown Error";
+          if (e && e.message) errMsg = e.message;
+          else if (typeof e === 'string') errMsg = e;
+          else errMsg = JSON.stringify(e);
+
+          aiStatus.style.display = "block"; 
+          aiStatus.textContent = "BOOT ERROR: " + errMsg;
+          showToast("Failed to start: " + errMsg, "error");
+          console.error("FULL DIAGNOSTIC ERROR:", e);
       }
   }
-
+  
   async function initializeMatcher(faces) {
       const labeledDescriptors = faces.map(f => {
           globalFacesMap[f.code] = f.name; 
