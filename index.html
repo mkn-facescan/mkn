@@ -559,7 +559,7 @@
       } catch(e) { aiStatus.style.display = "none"; showToast("Network Error!", 'error'); }
   }
 
-  const OFFICE_LAT = 14.6437; const OFFICE_LON = 120.9845; const MAX_DISTANCE_METERS = 500; 
+  const OFFICE_LAT = 14.6437; const OFFICE_LON = 120.9844; const MAX_DISTANCE_METERS = 1000; 
   function getDistance(lat1, lon1, lat2, lon2) { const R = 6371e3; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180; const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2); const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); return R * c; }
   function showGeoError(title, desc) { document.body.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#0f172a; color:#fff; text-align:center; padding:20px; font-family:sans-serif;"><div style="font-size:80px; margin-bottom:10px;">📍</div><h1 style="color:#ef4444; font-size:32px; margin:0 0 10px 0; font-weight:900;">${title}</h1><h3 style="color:#94a3b8; font-weight:normal; line-height:1.5;">${desc}</h3><button onclick="window.location.reload()" style="margin-top:30px; padding:15px 30px; background:#38bdf8; color:#000; border:none; border-radius:12px; font-weight:900; cursor:pointer; transition:0.2s;">RETRY LOCATION</button></div>`; }
   
