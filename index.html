@@ -106,15 +106,26 @@
     .gateCancel { width: 100%; background: transparent; color: var(--sub); font-weight: bold; font-size: 14px; padding: 15px; border: 2px solid var(--border); border-radius: 12px; cursor: pointer; margin-top: 10px; transition:0.2s; }
     .gateCancel:hover { background: var(--bg); color: #fff; }
 
-    .header-title { font-weight: 900; font-size: 18px; display: flex; align-items: center; gap: 10px; white-space: nowrap; margin-top: 5px;}
-    .nav-buttons { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+    .header-title { font-weight: 900; font-size: 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px; white-space: nowrap; margin-top: 5px;}
+    
+    /* 🔥 HIDE/SHOW TOGGLE BUTTON STYLES */
+    .toggle-nav-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 8px; cursor: pointer; padding: 4px 8px; font-size: 10px; font-weight: bold; margin-left: 10px; transition: 0.2s; backdrop-filter: blur(5px); }
+    .toggle-nav-btn:hover { background: rgba(255,255,255,0.2); }
+    .toggle-nav-btn:active { transform: scale(0.95); }
+
+    /* 🔥 NAV BUTTONS HIDDEN/SHOW LOGIC */
+    .nav-buttons { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.3s ease; max-height: 200px; opacity: 1; overflow: hidden; }
+    .nav-buttons.hidden { max-height: 0; opacity: 0; margin: 0; pointer-events: none; }
+    
     .mode-btn { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 8px 10px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 11px; white-space: nowrap; }
     .mode-btn:hover { border-color: var(--accent); color: var(--accent); }
     .mode-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
 
     .header-clock { text-align: right; flex-shrink: 0; }
     .time { font-size: 20px; font-weight: 900; }
-    .date { font-size: 12px; color: var(--sub); font-weight: 600; text-transform: uppercase; }
+    
+    /* 🔥 DATE UPDATED TO WHITE */
+    .date { font-size: 12px; color: #ffffff; font-weight: 700; text-transform: uppercase; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
     
     .capture-btn-wrap { width: 100%; max-width: 400px; z-index: 20; flex-shrink: 0; }
     .capture-btn { width: 100%; background: var(--accent); color: #000; padding: 20px; border-radius: 16px; border: none; font-weight: 900; font-size: 18px; cursor: pointer; transition: transform 0.1s; box-shadow: 0 10px 20px rgba(56, 189, 248, 0.3);}
@@ -218,8 +229,11 @@
     <div class="ai-status-overlay" id="aiStatus" style="display:none;"></div>
 
     <div class="overlay-top">
-        <div class="header-title">MKN-ATTENDANCE V.8</div>
-        <div class="nav-buttons">
+        <div class="header-title">
+            MKN-ATTENDANCE V.9
+            <button class="toggle-nav-btn" onclick="toggleNav()" id="toggleNavBtn" title="Show/Hide Menu">👁️ HIDE</button>
+        </div>
+        <div class="nav-buttons" id="mainNavButtons">
             <button class="mode-btn active" id="btnModeScan" onclick="switchMode('SCAN')">FACE SCAN</button>
             <button class="mode-btn" id="btnModeQR" onclick="switchMode('QR')">QR CODE</button>
             <button class="mode-btn" id="btnModeReg" onclick="switchMode('REGISTER')">NEW HR</button>
@@ -361,6 +375,22 @@
       ctx.translate(tempCanvas.width, 0); ctx.scale(-1, 1);
       ctx.drawImage(vid, 0, 0, tempCanvas.width, tempCanvas.height);
       return tempCanvas.toDataURL('image/jpeg', 0.8);
+  }
+
+  // 🔥 TOGGLE NAVIGATION BUTTONS LOGIC
+  function toggleNav() {
+      const nav = document.getElementById('mainNavButtons');
+      const btn = document.getElementById('toggleNavBtn');
+      
+      nav.classList.toggle('hidden');
+      
+      if (nav.classList.contains('hidden')) {
+          btn.innerHTML = '👁️ SHOW';
+          btn.style.opacity = '0.7';
+      } else {
+          btn.innerHTML = '👁️ HIDE';
+          btn.style.opacity = '1';
+      }
   }
 
   function cancelAdminUnlock() {
