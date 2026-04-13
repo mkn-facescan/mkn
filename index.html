@@ -231,7 +231,7 @@
     <div class="overlay-top">
         <div class="header-title">
             MKN-ATTENDANCE V.9
-            <button class="toggle-nav-btn" onclick="toggleNav()" id="toggleNavBtn" title="Show/Hide Menu">👁️ HIDE</button>
+            <button class="toggle-nav-btn" onclick="toggleNav()" id="toggleNavBtn" title="Show/Hide Menu">❌CLOSE</button>
         </div>
         <div class="nav-buttons" id="mainNavButtons">
             <button class="mode-btn active" id="btnModeScan" onclick="switchMode('SCAN')">FACE SCAN</button>
@@ -385,10 +385,10 @@
       nav.classList.toggle('hidden');
       
       if (nav.classList.contains('hidden')) {
-          btn.innerHTML = '👁️ SHOW';
+          btn.innerHTML = '⚙️OPTION';
           btn.style.opacity = '0.7';
       } else {
-          btn.innerHTML = '👁️ HIDE';
+          btn.innerHTML = '❌CLOSE';
           btn.style.opacity = '1';
       }
   }
