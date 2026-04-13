@@ -26,7 +26,7 @@
       } catch(e) { throw e; }
     }
 
-    // 🔥 THE MISSING PIECE: Sends the attendance scans to Google Sheets
+    // THE POSTER: Sends the attendance scans to Google Sheets
     async function postAPI(payload) {
       try {
         const response = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
@@ -42,7 +42,7 @@
     /* Hide scrollbars to act like a true full-screen kiosk app */
     html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; background-color: #000; color: var(--text); overflow: hidden; }
     
-    /* 🔥 1. THE MAIN FULL SCREEN WRAPPER */
+    /* 1. THE MAIN FULL SCREEN WRAPPER */
     .scanner-wrapper {
         position: relative;
         width: 100vw;
@@ -57,7 +57,7 @@
     body.flash-success .scanner-wrapper { box-shadow: inset 0 0 50px rgba(16, 185, 129, 0.8); border: 5px solid var(--success); }
     body.flash-error .scanner-wrapper { box-shadow: inset 0 0 50px rgba(239, 68, 68, 0.8); border: 5px solid var(--error); }
 
-    /* 🔥 2. THE CAMERA FILLS THE SCREEN */
+    /* 2. THE CAMERA FILLS THE SCREEN */
     video, canvas { 
         position: absolute; 
         top: 0; left: 0; 
@@ -69,7 +69,18 @@
     video { z-index: 1; }
     canvas { z-index: 2; } /* Keeps boxes on top of video */
 
-    /* 🔥 3. THE TOP OVERLAY */
+    /* 🔥 3. THE KIOSK SLEEP OVERLAY */
+    #sleepOverlay {
+        position: absolute; inset: 0; background: #000; z-index: 99999;
+        display: none; flex-direction: column; align-items: center; justify-content: center;
+        cursor: pointer;
+    }
+    .sleep-icon { font-size: 70px; margin-bottom: 20px; opacity: 0.6; }
+    .sleep-text { font-size: 38px; font-weight: 900; color: var(--accent); letter-spacing: 3px; text-align: center; animation: pulse 2s infinite; }
+    .sleep-sub { font-size: 16px; color: var(--sub); margin-top: 15px; font-weight: 600; text-align: center; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+    /* 4. THE TOP OVERLAY */
     .overlay-top {
         position: absolute; top: 0; left: 0; right: 0; z-index: 20;
         display: flex; justify-content: space-between; align-items: flex-start;
@@ -78,7 +89,7 @@
         background: linear-gradient(to bottom, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0.6) 50%, rgba(15,23,42,0) 100%);
     }
 
-    /* 🔥 4. THE BOTTOM OVERLAY */
+    /* 5. THE BOTTOM OVERLAY */
     .overlay-bottom {
         position: absolute; bottom: 0; left: 0; right: 0; z-index: 20;
         display: flex; flex-direction: column; align-items: center;
@@ -108,12 +119,10 @@
 
     .header-title { font-weight: 900; font-size: 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px; white-space: nowrap; margin-top: 5px;}
     
-    /* 🔥 HIDE/SHOW TOGGLE BUTTON STYLES */
     .toggle-nav-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 8px; cursor: pointer; padding: 4px 8px; font-size: 10px; font-weight: bold; margin-left: 10px; transition: 0.2s; backdrop-filter: blur(5px); }
     .toggle-nav-btn:hover { background: rgba(255,255,255,0.2); }
     .toggle-nav-btn:active { transform: scale(0.95); }
 
-    /* 🔥 NAV BUTTONS HIDDEN/SHOW LOGIC */
     .nav-buttons { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.3s ease; max-height: 200px; opacity: 1; overflow: hidden; }
     .nav-buttons.hidden { max-height: 0; opacity: 0; margin: 0; pointer-events: none; }
     
@@ -124,7 +133,6 @@
     .header-clock { text-align: right; flex-shrink: 0; }
     .time { font-size: 20px; font-weight: 900; }
     
-    /* 🔥 DATE UPDATED TO WHITE */
     .date { font-size: 12px; color: #ffffff; font-weight: 700; text-transform: uppercase; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
     
     .capture-btn-wrap { width: 100%; max-width: 400px; z-index: 20; flex-shrink: 0; }
@@ -165,7 +173,6 @@
     .bottom-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 20px; display: none; align-items: center; justify-content: center; gap: 15px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
     .bottom-panel.active { display: flex; }
     
-    /* The scanning text now floats cleanly over the bottom gradient */
     #panelScan { background: transparent; border: none; box-shadow: none; padding: 0; }
     #panelReg.active, #panelEdit.active { flex-direction: column; align-items: stretch; }
 
@@ -228,16 +235,22 @@
     
     <div class="ai-status-overlay" id="aiStatus" style="display:none;"></div>
 
+    <div id="sleepOverlay" onclick="wakeUpCamera()">
+        <div class="sleep-icon">💤</div>
+        <div class="sleep-text">TAP TO WAKE UP</div>
+        <div class="sleep-sub">Camera is sleeping to save power</div>
+    </div>
+
     <div class="overlay-top">
         <div class="header-title">
-            MKN-ATTENDANCE V.9
+            MKN-ATTENDANCE V.8
             <button class="toggle-nav-btn" onclick="toggleNav()" id="toggleNavBtn" title="Show/Hide Menu">❌CLOSE</button>
         </div>
         <div class="nav-buttons" id="mainNavButtons">
-            <button class="mode-btn active" id="btnModeScan" onclick="switchMode('SCAN')">FACE SCAN</button>
-            <button class="mode-btn" id="btnModeQR" onclick="switchMode('QR')">QR CODE</button>
-            <button class="mode-btn" id="btnModeReg" onclick="switchMode('REGISTER')">NEW HR</button>
-            <button class="mode-btn" id="btnModeEdit" onclick="switchMode('EDIT')">EDIT EMP</button>
+            <button class="mode-btn active" id="btnModeScan" onclick="switchMode('SCAN')">⛶FACESCAN</button>
+            <button class="mode-btn" id="btnModeQR" onclick="switchMode('QR')">🧾QRSCAN</button>
+            <button class="mode-btn" id="btnModeReg" onclick="switchMode('REGISTER')">🆕NEW EMP</button>
+            <button class="mode-btn" id="btnModeEdit" onclick="switchMode('EDIT')">✏️EDITEMP</button>
         </div>
         <div class="header-clock">
           <div class="time" id="clock">00:00:00</div>
@@ -340,6 +353,47 @@
 </div>
 
 <script>
+  // 🔥 KIOSK 10-MINUTE SLEEP TIMER LOGIC
+  let kioskIdleTimer;
+  let isCameraSleeping = false;
+  const KIOSK_SLEEP_MS = 300000; // 5 minutes
+
+  function resetKioskTimer() {
+      if (isCameraSleeping) return; 
+      clearTimeout(kioskIdleTimer);
+      kioskIdleTimer = setTimeout(putCameraToSleep, KIOSK_SLEEP_MS);
+  }
+
+  function putCameraToSleep() {
+      isCameraSleeping = true;
+      document.getElementById('sleepOverlay').style.display = 'flex';
+      
+      // Turn off the physical camera to save power and stop overheating
+      const vid = document.getElementById('video');
+      if (vid.srcObject) {
+          vid.srcObject.getTracks().forEach(track => track.stop());
+          vid.srcObject = null;
+      }
+  }
+
+  function wakeUpCamera() {
+      if (!isCameraSleeping) return;
+      document.getElementById('sleepOverlay').style.display = 'none';
+      isCameraSleeping = false;
+      
+      showToast("Waking up camera...", "info");
+      document.getElementById('aiStatus').style.display = "block"; 
+      document.getElementById('aiStatus').textContent = "STARTING CAMERA...";
+      
+      startCameraFeed();
+      resetKioskTimer();
+  }
+
+  // Listen for activity anywhere on the screen to reset the sleep timer
+  ['touchstart', 'click', 'mousemove', 'keypress'].forEach(evt => {
+      document.addEventListener(evt, resetKioskTimer);
+  });
+
   function showToast(msg, type='info') {
     const box = document.getElementById('toastBox');
     const toast = document.createElement('div');
@@ -369,7 +423,6 @@
   function capturePhotoBase64() {
       const vid = document.getElementById('video');
       const tempCanvas = document.createElement('canvas');
-      // Using intrinsic size perfectly captures the image even when CSS stretches it
       tempCanvas.width = vid.videoWidth; tempCanvas.height = vid.videoHeight;
       const ctx = tempCanvas.getContext('2d');
       ctx.translate(tempCanvas.width, 0); ctx.scale(-1, 1);
@@ -377,20 +430,12 @@
       return tempCanvas.toDataURL('image/jpeg', 0.8);
   }
 
-  // 🔥 TOGGLE NAVIGATION BUTTONS LOGIC
   function toggleNav() {
       const nav = document.getElementById('mainNavButtons');
       const btn = document.getElementById('toggleNavBtn');
-      
       nav.classList.toggle('hidden');
-      
-      if (nav.classList.contains('hidden')) {
-          btn.innerHTML = '⚙️OPTION';
-          btn.style.opacity = '0.7';
-      } else {
-          btn.innerHTML = '❌CLOSE';
-          btn.style.opacity = '1';
-      }
+      if (nav.classList.contains('hidden')) { btn.innerHTML = '⚙️OPTION'; btn.style.opacity = '0.7'; } 
+      else { btn.innerHTML = '❌CLOSE'; btn.style.opacity = '1'; }
   }
 
   function cancelAdminUnlock() {
@@ -517,14 +562,17 @@
   }
 
   async function startCameraFeed() {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-      video.srcObject = stream;
-      video.onloadedmetadata = () => { 
-          // 🔥 CRITICAL FIX: Use intrinsic video sizes so FaceAPI math maps perfectly over the full screen
-          overlay.width = video.videoWidth; 
-          overlay.height = video.videoHeight; 
-          aiStatus.style.display = "none"; 
-      };
+      try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+          video.srcObject = stream;
+          video.onloadedmetadata = () => { 
+              overlay.width = video.videoWidth; 
+              overlay.height = video.videoHeight; 
+              aiStatus.style.display = "none"; 
+          };
+      } catch (err) {
+          showToast("Camera access failed", "error");
+      }
   }
 
   async function syncFacesInBackground() {
@@ -550,7 +598,6 @@
           const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
           if (!detection) throw new Error("NO FACE DETECTED");
           
-          // 🔥 CRITICAL FIX: Base sizes off video intrinsic size to prevent full-screen distortion
           const displaySize = { width: video.videoWidth, height: video.videoHeight };
           const resizedDetection = faceapi.resizeResults(detection, displaySize);
           
@@ -689,7 +736,11 @@
           }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
   }
-  window.addEventListener("DOMContentLoaded", () => { verifyLocationAndStart(); });
+  
+  window.addEventListener("DOMContentLoaded", () => { 
+      verifyLocationAndStart(); 
+      resetKioskTimer(); // Start the idle timer when the page loads
+  });
 </script>
 </body>
 </html>
