@@ -38,11 +38,57 @@
   <style>
     :root { --bg: #0f172a; --panel: #1e293b; --text: #f8fafc; --sub: #94a3b8; --border: #334155; --accent: #38bdf8; --success: #10b981; --error: #ef4444; --warning: #f59e0b; }
     *, *::before, *::after { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; background-color: var(--bg); color: var(--text); overflow-x: hidden; }
     
-    body.flash-success .cam-container { box-shadow: 0 0 40px rgba(16, 185, 129, 0.6); border-color: var(--success); }
-    body.flash-error .cam-container { box-shadow: 0 0 40px rgba(239, 68, 68, 0.6); border-color: var(--error); }
+    /* Hide scrollbars to act like a true full-screen kiosk app */
+    html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; background-color: #000; color: var(--text); overflow: hidden; }
+    
+    /* 🔥 1. THE MAIN FULL SCREEN WRAPPER */
+    .scanner-wrapper {
+        position: relative;
+        width: 100vw;
+        height: 100dvh; /* Adapts to mobile browser bars perfectly */
+        overflow: hidden;
+        background: #000;
+        box-sizing: border-box;
+        transition: all 0.3s ease;
+    }
 
+    /* Screen Flash Feedbacks */
+    body.flash-success .scanner-wrapper { box-shadow: inset 0 0 50px rgba(16, 185, 129, 0.8); border: 5px solid var(--success); }
+    body.flash-error .scanner-wrapper { box-shadow: inset 0 0 50px rgba(239, 68, 68, 0.8); border: 5px solid var(--error); }
+
+    /* 🔥 2. THE CAMERA FILLS THE SCREEN */
+    video, canvas { 
+        position: absolute; 
+        top: 0; left: 0; 
+        width: 100%; height: 100%; 
+        object-fit: cover; /* Stretches nicely without distorting */
+        transform: scaleX(-1); /* Mirror effect */
+        pointer-events: none;
+    }
+    video { z-index: 1; }
+    canvas { z-index: 2; } /* Keeps boxes on top of video */
+
+    /* 🔥 3. THE TOP OVERLAY */
+    .overlay-top {
+        position: absolute; top: 0; left: 0; right: 0; z-index: 20;
+        display: flex; justify-content: space-between; align-items: flex-start;
+        padding: 20px 30px 40px;
+        /* Dark gradient blending down so text is readable */
+        background: linear-gradient(to bottom, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0.6) 50%, rgba(15,23,42,0) 100%);
+    }
+
+    /* 🔥 4. THE BOTTOM OVERLAY */
+    .overlay-bottom {
+        position: absolute; bottom: 0; left: 0; right: 0; z-index: 20;
+        display: flex; flex-direction: column; align-items: center;
+        padding: 60px 20px 30px;
+        /* Dark gradient blending up */
+        background: linear-gradient(to top, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0.8) 60%, rgba(15,23,42,0) 100%);
+        gap: 15px;
+    }
+
+    /* TOASTS & GATES */
     #toastBox { position:fixed; top:20px; right:20px; z-index:99999; display:flex; flex-direction:column; gap:10px; pointer-events:none; }
     .toast { min-width:250px; background:var(--panel); color:#fff; padding:15px 20px; border-radius:12px; font-weight:900; box-shadow:0 10px 40px rgba(0,0,0,0.5); display:flex; align-items:center; gap:12px; transform:translateX(120%); transition:transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid var(--border); }
     .toast.show { transform:translateX(0); }
@@ -60,54 +106,61 @@
     .gateCancel { width: 100%; background: transparent; color: var(--sub); font-weight: bold; font-size: 14px; padding: 15px; border: 2px solid var(--border); border-radius: 12px; cursor: pointer; margin-top: 10px; transition:0.2s; }
     .gateCancel:hover { background: var(--bg); color: #fff; }
 
-    #viewport { display: flex; flex-direction: column; height: 100vh; padding: 15px; gap: 15px; max-width: 1200px; margin: 0 auto; }
-    
-    .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: var(--panel); border-radius: 16px; border: 1px solid var(--border); flex-shrink: 0; }
-    .header-title { font-weight: 900; font-size: 18px; display: flex; align-items: center; gap: 10px; margin-right: 15px; white-space: nowrap;}
-    
+    .header-title { font-weight: 900; font-size: 18px; display: flex; align-items: center; gap: 10px; white-space: nowrap; margin-top: 5px;}
     .nav-buttons { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
     .mode-btn { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 8px 10px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 11px; white-space: nowrap; }
     .mode-btn:hover { border-color: var(--accent); color: var(--accent); }
     .mode-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
 
-    .header-clock { text-align: right; margin-left: 15px; flex-shrink: 0; }
+    .header-clock { text-align: right; flex-shrink: 0; }
     .time { font-size: 20px; font-weight: 900; }
     .date { font-size: 12px; color: var(--sub); font-weight: 600; text-transform: uppercase; }
-
-    .cam-container { flex: 1; position: relative; background: #000; border-radius: 20px; overflow: hidden; border: 3px solid var(--border); transition: all 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.4); display:flex; flex-direction:column; min-height: 300px; }
     
-    .video-wrap { flex: 1; position: relative; width: 100%; height: 100%; overflow:hidden; display: flex; align-items: center; justify-content: center; }
-    video { position: absolute; top:0; left:0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-    canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); pointer-events: none; }
-    
-    .capture-btn-wrap { padding: 15px; background: var(--panel); border-top: 1px solid var(--border); text-align: center; z-index: 20; flex-shrink: 0; }
-    .capture-btn { width: 100%; max-width: 400px; background: var(--accent); color: #000; padding: 20px; border-radius: 16px; border: none; font-weight: 900; font-size: 18px; cursor: pointer; transition: transform 0.1s; }
-    .capture-btn:active { transform: scale(0.96); }
+    .capture-btn-wrap { width: 100%; max-width: 400px; z-index: 20; flex-shrink: 0; }
+    .capture-btn { width: 100%; background: var(--accent); color: #000; padding: 20px; border-radius: 16px; border: none; font-weight: 900; font-size: 18px; cursor: pointer; transition: transform 0.1s; box-shadow: 0 10px 20px rgba(56, 189, 248, 0.3);}
+    .capture-btn:active { transform: scale(0.96); box-shadow: 0 5px 10px rgba(56, 189, 248, 0.3);}
 
-    .ai-status-overlay { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); padding: 8px 16px; border-radius: 20px; font-weight: 900; font-size: 14px; color: var(--warning); z-index: 10; border: 1px solid rgba(255,255,255,0.1); }
+    .ai-status-overlay { 
+        position: absolute; 
+        top: 50%; left: 50%; 
+        transform: translate(-50%, -50%); 
+        background: rgba(0,0,0,0.85); 
+        padding: 12px 24px; 
+        border-radius: 30px; 
+        font-weight: 900; 
+        font-size: 16px; 
+        color: var(--warning); 
+        z-index: 30; 
+        border: 2px solid var(--warning);
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
 
-    .confirm-overlay { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
-    .confirm-box { background: var(--panel); padding: 30px; border-radius: 20px; text-align: center; border: 2px solid var(--accent); width: 100%; max-width: 450px; }
+    .confirm-overlay { position: absolute; inset: 0; background: rgba(15, 23, 42, 0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 50; padding: 20px; backdrop-filter: blur(5px); }
+    .confirm-box { background: var(--panel); padding: 30px; border-radius: 20px; text-align: center; border: 2px solid var(--accent); width: 100%; max-width: 450px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);}
     .confirm-name { font-size: 28px; color: #fff; font-weight: 900; margin: 10px 0 25px 0; }
     
     .action-grid { display: flex; gap: 12px; margin-bottom: 12px; width: 100%; }
     .action-grid button { flex: 1; padding: 18px 10px; border-radius: 12px; border: none; font-weight: 900; font-size: 16px; cursor: pointer; transition: 0.1s; color: #fff; }
     .action-grid button:active { transform: scale(0.95); }
-    .btn-time-in { background: var(--success); }
-    .btn-time-out { background: var(--error); }
+    .btn-time-in { background: var(--success); box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);}
+    .btn-time-out { background: var(--error); box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3);}
     
     .btn-cancel { width: 100%; background: transparent; color: var(--sub); padding: 15px; border-radius: 12px; border: 2px solid var(--border); font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.1s; }
     .btn-cancel:hover { background: var(--bg); color: #fff; }
     .btn-cancel:active { transform: scale(0.95); }
 
-    .panel-wrapper { flex-shrink: 0; width: 100%; transition: all 0.3s ease; }
-    .bottom-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 15px; display: none; align-items: center; justify-content: center; gap: 15px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    .panel-wrapper { width: 100%; max-width: 800px; transition: all 0.3s ease; }
+    .bottom-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 20px; display: none; align-items: center; justify-content: center; gap: 15px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
     .bottom-panel.active { display: flex; }
+    
+    /* The scanning text now floats cleanly over the bottom gradient */
+    #panelScan { background: transparent; border: none; box-shadow: none; padding: 0; }
     #panelReg.active, #panelEdit.active { flex-direction: column; align-items: stretch; }
 
     .emp-details { flex: 1; display: flex; flex-direction: column; justify-content: center; text-align: center; }
-    .emp-name { font-size: 24px; font-weight: 900; margin: 0 0 4px 0; color: var(--text); }
-    .status-pill { align-self: center; padding: 6px 14px; border-radius: 12px; font-size: 14px; font-weight: 900; background: var(--bg); border: 1px solid var(--border); color: var(--sub); }
+    .emp-name { font-size: 24px; font-weight: 900; margin: 0 0 8px 0; color: var(--text); text-shadow: 0 2px 10px rgba(0,0,0,0.8);}
+    .status-pill { align-self: center; padding: 6px 14px; border-radius: 12px; font-size: 14px; font-weight: 900; background: var(--bg); border: 1px solid var(--border); color: var(--sub); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
 
     .qr-input-wrap { flex: 1; display: flex; flex-direction: column; gap: 10px; width: 100%; }
     .qr-input { width: 100%; background: var(--bg); border: 2px solid var(--accent); color: white; padding: 15px; border-radius: 12px; font-size: 18px; font-weight: bold; text-align: center; text-transform: uppercase; outline: none; }
@@ -126,15 +179,16 @@
     .status-proc { background: rgba(245, 158, 11, 0.15); border-color: var(--warning); color: var(--warning); }
 
     @media (max-width: 768px) {
-        #viewport { padding: 10px; gap: 10px; height: 100dvh; } 
-        .header { flex-direction: column; gap: 12px; padding: 12px; }
-        .header-title { margin-right: 0; justify-content: center; width: 100%; }
+        .overlay-top { flex-direction: column; gap: 15px; align-items: center; padding: 15px 15px 30px; }
+        .header-title { margin-right: 0; justify-content: center; width: 100%; margin-top: 0;}
         .nav-buttons { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .mode-btn { width: 100%; padding: 12px 5px; font-size: 11px; text-align: center; }
         .header-clock { text-align: center; margin-left: 0; width: 100%; }
-        .cam-container { min-height: 40vh; } 
-        .bottom-panel { padding: 12px; flex-direction: column; text-align: center; }
+        
+        .overlay-bottom { padding: 40px 15px 20px; }
+        .bottom-panel { padding: 15px; flex-direction: column; text-align: center; }
         .emp-name { font-size: 18px; }
+        
         .reg-grid { grid-template-columns: 1fr; gap: 8px; }
         .reg-grid > * { grid-column: span 1 !important; }
         .flex-row-mobile { flex-direction: column !important; }
@@ -156,32 +210,105 @@
   </div>
 </div>
 
-<div id="viewport">
-  <div class="header">
-    <div class="header-title">MKN-ATTENDANCE V.7</div>
-    <div class="nav-buttons">
-        <button class="mode-btn active" id="btnModeScan" onclick="switchMode('SCAN')">FACE SCAN</button>
-        <button class="mode-btn" id="btnModeQR" onclick="switchMode('QR')">QR CODE</button>
-        <button class="mode-btn" id="btnModeReg" onclick="switchMode('REGISTER')">NEW HR</button>
-        <button class="mode-btn" id="btnModeEdit" onclick="switchMode('EDIT')">EDIT EMP</button>
-    </div>
-    <div class="header-clock">
-      <div class="time" id="clock">00:00:00</div>
-      <div class="date" id="clockDate">—</div>
-    </div>
-  </div>
+<div class="scanner-wrapper" id="camContainer">
+    
+    <video id="video" autoplay muted playsinline></video>
+    <canvas id="overlay"></canvas>
+    
+    <div class="ai-status-overlay" id="aiStatus" style="display:none;"></div>
 
-  <div class="cam-container" id="camContainer">
-    <div class="video-wrap">
-        <video id="video" autoplay muted playsinline></video>
-        <canvas id="overlay"></canvas>
-        <div class="ai-status-overlay" id="aiStatus" style="display:none;"></div>
+    <div class="overlay-top">
+        <div class="header-title">MKN-ATTENDANCE V.8</div>
+        <div class="nav-buttons">
+            <button class="mode-btn active" id="btnModeScan" onclick="switchMode('SCAN')">FACE SCAN</button>
+            <button class="mode-btn" id="btnModeQR" onclick="switchMode('QR')">QR CODE</button>
+            <button class="mode-btn" id="btnModeReg" onclick="switchMode('REGISTER')">NEW HR</button>
+            <button class="mode-btn" id="btnModeEdit" onclick="switchMode('EDIT')">EDIT EMP</button>
+        </div>
+        <div class="header-clock">
+          <div class="time" id="clock">00:00:00</div>
+          <div class="date" id="clockDate">—</div>
+        </div>
     </div>
-    
-    <div class="capture-btn-wrap" id="captureWrap">
-        <button class="capture-btn" id="captureBtn" onclick="captureAndAnalyze()">📸 CAPTURE & RECOGNIZE</button>
+
+    <div class="overlay-bottom">
+        <div class="capture-btn-wrap" id="captureWrap">
+            <button class="capture-btn" id="captureBtn" onclick="captureAndAnalyze()">📸 CAPTURE & RECOGNIZE</button>
+        </div>
+
+        <div class="panel-wrapper">
+            <div class="bottom-panel active" id="panelScan">
+              <div class="emp-details">
+                <h2 class="emp-name" id="empName">WAITING FOR SCAN</h2>
+                <div class="status-pill" id="statusLine">READY</div>
+              </div>
+            </div>
+
+            <div class="bottom-panel" id="panelQR">
+                <div class="qr-input-wrap">
+                    <input type="text" class="qr-input" id="qrInput" placeholder="SCAN OR TYPE CODE HERE (e.g. MIK-235)">
+                    <div class="qr-btn-row">
+                        <button class="qr-btn" style="background:var(--success)" onclick="submitQR('IN')">📸 TIME IN</button>
+                        <button class="qr-btn" style="background:var(--error)" onclick="submitQR('OUT')">📸 TIME OUT</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bottom-panel" id="panelReg">
+                <div class="reg-grid">
+                    <input type="text" class="reg-input full" id="regCode" disabled placeholder="FETCHING NEXT CODE...">
+                    <input type="text" class="reg-input" id="regName" placeholder="Full Name">
+                    <select class="reg-input" id="regDept">
+                        <option value="" disabled selected>Select Dept</option>
+                        <option value="ASSEMBLY">ASSEMBLY</option>
+                        <option value="FULFILLMENT">FULFILLMENT</option>
+                        <option value="OFFLINE">OFFLINE</option>
+                    </select>
+                    <select class="reg-input" id="regShift">
+                        <option value="" disabled selected>Select Shift</option>
+                        <option value="MORNING SHIFT">MORNING</option>
+                        <option value="NIGHT SHIFT">NIGHT</option>
+                    </select>
+                    <input type="text" class="reg-input" id="regMobile" placeholder="Mobile Number">
+                    <select class="reg-input" id="regStatus"><option value="ACTIVE">ACTIVE</option></select>
+                    <input type="text" class="reg-input full" id="regAddress" placeholder="Home Address">
+                    <button class="reg-submit-btn full" id="regSubmitBtn" onclick="submitRegistration()">📸 MAP FACE & SAVE HR RECORD</button>
+                </div>
+            </div>
+
+            <div class="bottom-panel" id="panelEdit">
+                <div class="reg-grid">
+                    <div style="grid-column: span 2; display:flex; gap:10px;" class="flex-row-mobile">
+                        <input type="text" class="reg-input" id="editSearchCode" placeholder="Enter Code (e.g. MIK-1)" style="flex:1; text-transform:uppercase;">
+                        <button class="reg-submit-btn" style="width:80px; padding:10px;" onclick="loadEmployeeForEdit()">LOAD</button>
+                    </div>
+                    <input type="text" class="reg-input" id="editName" placeholder="Full Name">
+                    <select class="reg-input" id="editDept">
+                        <option value="" disabled selected>Select Dept</option>
+                        <option value="ASSEMBLY">ASSEMBLY</option>
+                        <option value="FULFILLMENT">FULFILLMENT</option>
+                        <option value="OFFLINE">OFFLINE</option>
+                    </select>
+                    <select class="reg-input" id="editShift">
+                        <option value="" disabled selected>Select Shift</option>
+                        <option value="MORNING SHIFT">MORNING</option>
+                        <option value="NIGHT SHIFT">NIGHT</option>
+                    </select>
+                    <input type="text" class="reg-input" id="editMobile" placeholder="Mobile Number">
+                    <select class="reg-input" id="editStatus">
+                        <option value="ACTIVE">ACTIVE</option>
+                        <option value="INACTIVE">INACTIVE</option>
+                    </select>
+                    <input type="text" class="reg-input full" id="editAddress" placeholder="Home Address">
+                    <div style="grid-column: span 2; display:flex; gap:10px; margin-top: 4px;" class="flex-row-mobile">
+                        <button class="reg-submit-btn" style="background:var(--success); flex:1;" onclick="submitEdit(false)">💾 SAVE INFO ONLY</button>
+                        <button class="reg-submit-btn" style="background:var(--warning); flex:1; color:#000;" onclick="submitEdit(true)">📸 UPDATE + NEW FACE</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    
+
     <div class="confirm-overlay" id="confirmModal">
         <div class="confirm-box">
             <div style="color:var(--sub); font-weight:bold; letter-spacing:1px;">EMPLOYEE IDENTIFIED</div>
@@ -195,79 +322,7 @@
             <button class="btn-cancel" onclick="resetScanner()">❌ CANCEL / RETRY</button>
         </div>
     </div>
-  </div>
 
-  <div class="panel-wrapper">
-    <div class="bottom-panel active" id="panelScan">
-      <div class="emp-details">
-        <h2 class="emp-name" id="empName">WAITING FOR SCAN</h2>
-        <div class="status-pill" id="statusLine">READY</div>
-      </div>
-    </div>
-
-    <div class="bottom-panel" id="panelQR">
-        <div class="qr-input-wrap">
-            <input type="text" class="qr-input" id="qrInput" placeholder="SCAN OR TYPE CODE HERE (e.g. MIK-235)">
-            <div class="qr-btn-row">
-                <button class="qr-btn" style="background:var(--success)" onclick="submitQR('IN')">📸 TIME IN</button>
-                <button class="qr-btn" style="background:var(--error)" onclick="submitQR('OUT')">📸 TIME OUT</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="bottom-panel" id="panelReg">
-        <div class="reg-grid">
-            <input type="text" class="reg-input full" id="regCode" disabled placeholder="FETCHING NEXT CODE...">
-            <input type="text" class="reg-input" id="regName" placeholder="Full Name">
-            <select class="reg-input" id="regDept">
-                <option value="" disabled selected>Select Dept</option>
-                <option value="ASSEMBLY">ASSEMBLY</option>
-                <option value="FULFILLMENT">FULFILLMENT</option>
-                <option value="OFFLINE">OFFLINE</option>
-            </select>
-            <select class="reg-input" id="regShift">
-                <option value="" disabled selected>Select Shift</option>
-                <option value="MORNING SHIFT">MORNING</option>
-                <option value="NIGHT SHIFT">NIGHT</option>
-            </select>
-            <input type="text" class="reg-input" id="regMobile" placeholder="Mobile Number">
-            <select class="reg-input" id="regStatus"><option value="ACTIVE">ACTIVE</option></select>
-            <input type="text" class="reg-input full" id="regAddress" placeholder="Home Address">
-            <button class="reg-submit-btn full" id="regSubmitBtn" onclick="submitRegistration()">📸 MAP FACE & SAVE HR RECORD</button>
-        </div>
-    </div>
-
-    <div class="bottom-panel" id="panelEdit">
-        <div class="reg-grid">
-            <div style="grid-column: span 2; display:flex; gap:10px;" class="flex-row-mobile">
-                <input type="text" class="reg-input" id="editSearchCode" placeholder="Enter Code (e.g. MIK-1)" style="flex:1; text-transform:uppercase;">
-                <button class="reg-submit-btn" style="width:80px; padding:10px;" onclick="loadEmployeeForEdit()">LOAD</button>
-            </div>
-            <input type="text" class="reg-input" id="editName" placeholder="Full Name">
-            <select class="reg-input" id="editDept">
-                <option value="" disabled selected>Select Dept</option>
-                <option value="ASSEMBLY">ASSEMBLY</option>
-                <option value="FULFILLMENT">FULFILLMENT</option>
-                <option value="OFFLINE">OFFLINE</option>
-            </select>
-            <select class="reg-input" id="editShift">
-                <option value="" disabled selected>Select Shift</option>
-                <option value="MORNING SHIFT">MORNING</option>
-                <option value="NIGHT SHIFT">NIGHT</option>
-            </select>
-            <input type="text" class="reg-input" id="editMobile" placeholder="Mobile Number">
-            <select class="reg-input" id="editStatus">
-                <option value="ACTIVE">ACTIVE</option>
-                <option value="INACTIVE">INACTIVE</option>
-            </select>
-            <input type="text" class="reg-input full" id="editAddress" placeholder="Home Address">
-            <div style="grid-column: span 2; display:flex; gap:10px; margin-top: 4px;" class="flex-row-mobile">
-                <button class="reg-submit-btn" style="background:var(--success); flex:1;" onclick="submitEdit(false)">💾 SAVE INFO ONLY</button>
-                <button class="reg-submit-btn" style="background:var(--warning); flex:1; color:#000;" onclick="submitEdit(true)">📸 UPDATE + NEW FACE</button>
-            </div>
-        </div>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -300,6 +355,7 @@
   function capturePhotoBase64() {
       const vid = document.getElementById('video');
       const tempCanvas = document.createElement('canvas');
+      // Using intrinsic size perfectly captures the image even when CSS stretches it
       tempCanvas.width = vid.videoWidth; tempCanvas.height = vid.videoHeight;
       const ctx = tempCanvas.getContext('2d');
       ctx.translate(tempCanvas.width, 0); ctx.scale(-1, 1);
@@ -408,7 +464,6 @@
               }
           }
       } catch(e) { 
-          // 🔥 BULLETPROOF ERROR EXTRACTOR (No more "undefined")
           let errMsg = "Unknown Error";
           if (e && e.message) errMsg = e.message;
           else if (typeof e === 'string') errMsg = e;
@@ -434,7 +489,12 @@
   async function startCameraFeed() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
       video.srcObject = stream;
-      video.onloadedmetadata = () => { overlay.width = video.clientWidth; overlay.height = video.clientHeight; aiStatus.style.display = "none"; };
+      video.onloadedmetadata = () => { 
+          // 🔥 CRITICAL FIX: Use intrinsic video sizes so FaceAPI math maps perfectly over the full screen
+          overlay.width = video.videoWidth; 
+          overlay.height = video.videoHeight; 
+          aiStatus.style.display = "none"; 
+      };
   }
 
   async function syncFacesInBackground() {
@@ -459,8 +519,11 @@
           const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 });
           const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks().withFaceDescriptor();
           if (!detection) throw new Error("NO FACE DETECTED");
-          const displaySize = { width: video.clientWidth, height: video.clientHeight };
+          
+          // 🔥 CRITICAL FIX: Base sizes off video intrinsic size to prevent full-screen distortion
+          const displaySize = { width: video.videoWidth, height: video.videoHeight };
           const resizedDetection = faceapi.resizeResults(detection, displaySize);
+          
           const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
           if (bestMatch.label !== "unknown" && bestMatch.distance < 0.45) {
               const drawBox = new faceapi.draw.DrawBox(resizedDetection.detection.box, { label: bestMatch.label, boxColor: '#10b981' });
@@ -573,27 +636,4 @@
 
   const OFFICE_LAT = 14.6322; const OFFICE_LON = 120.9976; const MAX_DISTANCE_METERS = 100; 
   function getDistance(lat1, lon1, lat2, lon2) { const R = 6371e3; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180; const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2); const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); return R * c; }
-  function showGeoError(title, desc) { document.body.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#0f172a; color:#fff; text-align:center; padding:20px; font-family:sans-serif;"><div style="font-size:80px; margin-bottom:10px;">📍</div><h1 style="color:#ef4444; font-size:32px; margin:0 0 10px 0; font-weight:900;">${title}</h1><h3 style="color:#94a3b8; font-weight:normal; line-height:1.5;">${desc}</h3><button onclick="window.location.reload()" style="margin-top:30px; padding:15px 30px; background:#38bdf8; color:#000; border:none; border-radius:12px; font-weight:900; cursor:pointer; transition:0.2s;">RETRY LOCATION</button></div>`; }
-  
-  function verifyLocationAndStart() {
-      if (!navigator.geolocation) return showGeoError("UNSUPPORTED DEVICE", "Your device or browser does not support GPS location.");
-      showToast("Verifying GPS Location...", "info");
-      navigator.geolocation.getCurrentPosition(
-          (position) => {
-              const distance = getDistance(OFFICE_LAT, OFFICE_LON, position.coords.latitude, position.coords.longitude);
-              if (distance <= MAX_DISTANCE_METERS) { showToast("Location Verified!", "success"); runStartupEmployeeUpdate(); } 
-              else { showGeoError("ACCESS DENIED", `You are too far from the office.<br>Distance: ${Math.round(distance)} meters away.`); }
-          },
-          (error) => {
-              let msg = "Could not get your location.";
-              if (error.code === 1) msg = "You blocked the location request. Please allow location access in your browser settings.";
-              if (error.code === 2) msg = "Your GPS signal is unavailable right now.";
-              if (error.code === 3) msg = "The location request timed out.";
-              showGeoError("LOCATION REQUIRED", msg);
-          }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-  }
-  window.addEventListener("DOMContentLoaded", () => { verifyLocationAndStart(); });
-</script>
-</body>
-</html>
+  function showGeoError(title, desc) { document.body.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#0f172a; color:#fff; text-align:center; padding:20px; font-family:sans-serif;"><div style="font-size:80px; margin-bottom:10px;">📍</div><h1 style="color:#ef4444; font-size:32px; margin:0 0 10px 0; font-weight:900;">${title}</h1><h3 style="color:#94a3b8; font-weight:normal; line-height:1.5;">${desc}</h3><button onclick="window.location.reload()" style="margin-top:30px; padding:15px 30px; back
